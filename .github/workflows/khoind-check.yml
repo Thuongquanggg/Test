@@ -1,0 +1,23 @@
+name: khoind
+
+on:
+  workflow_dispatch:
+
+jobs:
+  execute-khoind-test:
+    name: Execute khoind Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Source Code
+        uses: actions/checkout@v3
+
+      - name: Execute k6 Scenario
+        # Sử dụng phiên bản mới nhất của k6-action
+        uses: grafana/k6-action@v0.3.1
+        # Cung cấp tham số đầu vào cho Action
+        with:
+          filename: performance/k6-scenario.js
+        # Đặt biến môi trường cho bước này.
+        env:
+          TEST_ENDPOINT: ${{ secrets.TEST_ENDPOINT }}
