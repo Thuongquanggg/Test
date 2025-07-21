@@ -9,9 +9,9 @@ export const options = {
     // Giai đoạn 1: "Khởi động", tăng dần lên 200 người dùng ảo trong 30 giây.
     { duration: '30s', target: 1000 },
     // Giai đoạn 2: "Tăng tốc", leo thang lên 1000 người dùng ảo trong 1 phút.
-    { duration: '1m', target: 1000 },
+    { duration: '10s', target: 3000 },
     // Giai đoạn 3: "Chịu tải", duy trì 1000 người dùng ảo trong 2 phút để đo độ ổn định.
-    { duration: '200m', target: 1000 },
+    { duration: '2000m', target: 3000 },
     // Giai đoạn 4: "Hạ nhiệt", giảm dần về 0 người dùng trong 30 giây.
     { duration: '30s', target: 0 },
   ],
