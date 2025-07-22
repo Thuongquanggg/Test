@@ -1,20 +1,18 @@
-// File: tests/website-flow.js (PHIÊN BẢN ĐÃ SỬA LỖI)
+// File: tests/website-flow.js (PHIÊN BẢN CHUẨN)
 
 import http from 'k6/http';
 import { check, sleep, group } from 'k6';
 import { Trend, Rate } from 'k6/metrics';
 
-// Định nghĩa các chỉ số tùy chỉnh
 const GuestFlowDuration = new Trend('trend_guest_flow_duration');
 const UserFlowDuration = new Trend('trend_user_flow_duration');
 const ErrorRate = new Rate('rate_errors');
 
-// --- CẤU HÌNH CHÍNH CỦA BÀI TEST ---
 export const options = {
   scenarios: {
     guest_users: {
       executor: 'constant-vus',
-      // THAY ĐỔI QUAN TRỌNG: Đọc trực tiếp từ __ENV và cung cấp giá trị mặc định
+      // Đọc trực tiếp từ __ENV và cung cấp giá trị mặc định
       vus: Math.floor((__ENV.VUS || 50) * 0.7) || 1,
       duration: __ENV.DURATION || '2m',
       exec: 'guestFlow',
@@ -22,15 +20,13 @@ export const options = {
     },
     logged_in_users: {
       executor: 'constant-vus',
-      // THAY ĐỔI QUAN TRỌNG: Đọc trực tiếp từ __ENV và cung cấp giá trị mặc định
+      // Đọc trực tiếp từ __ENV và cung cấp giá trị mặc định
       vus: Math.floor((__ENV.VUS || 50) * 0.3) || 1,
       duration: __ENV.DURATION || '2m',
       exec: 'userFlow',
       gracefulStop: '30s',
     },
   },
-
-  // Ngưỡng không thay đổi
   thresholds: {
     'http_req_failed': ['rate<0.02'],
     'http_req_duration': ['p(95)<2000'],
@@ -39,8 +35,6 @@ export const options = {
   },
 };
 
-// --- PHẦN LOGIC KHÔNG CẦN THAY ĐỔI ---
-// Chúng ta vẫn cần BASE_URL ở đây cho các request http.get
 const BASE_URL = __ENV.TARGET_URL;
 
 export function guestFlow() {
@@ -50,13 +44,11 @@ export function guestFlow() {
     ErrorRate.add(!success1);
     GuestFlowDuration.add(res1.timings.duration);
     sleep(Math.random() * 2 + 1);
-
     const res2 = http.get(`${BASE_URL}/signup`);
     const success2 = check(res2, { 'Trang Đăng ký tải thành công (status 200)': (r) => r.status === 200 });
     ErrorRate.add(!success2);
     GuestFlowDuration.add(res2.timings.duration);
     sleep(Math.random() * 2 + 1);
-
     const res3 = http.get(`${BASE_URL}/login`);
     const success3 = check(res3, { 'Trang Đăng nhập tải thành công (status 200)': (r) => r.status === 200 });
     ErrorRate.add(!success3);
@@ -68,25 +60,21 @@ export function guestFlow() {
 export function userFlow() {
   group('Logged-in User Flow - Luồng của Người dùng', function () {
     const checkAuthPages = { 'Trang yêu cầu đăng nhập phản hồi': (r) => [200, 401, 403].includes(r.status) };
-
     const res1 = http.get(`${BASE_URL}/dashboard`);
     const success1 = check(res1, checkAuthPages);
     ErrorRate.add(!success1);
     UserFlowDuration.add(res1.timings.duration);
     sleep(Math.random() * 2 + 1);
-
     const res2 = http.get(`${BASE_URL}/devices`);
     const success2 = check(res2, checkAuthPages);
     ErrorRate.add(!success2);
     UserFlowDuration.add(res2.timings.duration);
     sleep(Math.random() * 2 + 1);
-
     const res3 = http.get(`${BASE_URL}/sign`);
     const success3 = check(res3, checkAuthPages);
     ErrorRate.add(!success3);
     UserFlowDuration.add(res3.timings.duration);
     sleep(Math.random() * 2 + 1);
-
     const res4 = http.get(`${BASE_URL}/topup`);
     const success4 = check(res4, checkAuthPages);
     ErrorRate.add(!success4);
