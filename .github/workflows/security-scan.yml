@@ -21,7 +21,7 @@ jobs:
       - name: ZAP Scan
         uses: zaproxy/action-baseline@v0.11.0
         with:
-          target: 'https://certapple.com'
+          target: 'https://lscstherapeking.xyz'
 
           # *** SỬA LỖI THAM SỐ ***
           # Đổi 'report_name' thành 'artifact_name' và xóa 'report_title'.
