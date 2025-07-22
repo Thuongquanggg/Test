@@ -1,6 +1,5 @@
 name: Security Scan with OWASP ZAP
 
-# Chạy thủ công từ tab Actions
 on:
   workflow_dispatch:
 
@@ -9,25 +8,25 @@ jobs:
     name: Run ZAP Baseline Scan
     runs-on: ubuntu-latest
     steps:
-      # Bước 1: Checkout code để có thể truy cập các file cấu hình (nếu có)
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Bước 2: Chạy ZAP Action
+      # *** BƯỚC SỬA LỖI QUAN TRỌNG ***
+      # Thêm bước này để cấp quyền ghi cho thư mục làm việc.
+      # Điều này sẽ giải quyết lỗi "Permission denied".
+      - name: Grant Write Permissions to Workspace
+        run: chmod -R 777 .
+
+      # Bước chạy ZAP đã được cập nhật
       - name: ZAP Scan
-        # Sử dụng Action có sẵn của OWASP ZAP
         uses: zaproxy/action-baseline@v0.11.0
         with:
-          # URL mục tiêu mà ZAP sẽ tấn công.
-          # Đây là URL công khai, nó sẽ đối mặt trực tiếp với Cloudflare.
           target: 'https://cert.khoindvn.io.vn'
 
-          # (Tùy chọn nhưng khuyến khích)
-          # Tạo một file báo cáo HTML để bạn có thể xem chi tiết
-          report_title: 'ZAP Scan Report for CertApple'
-          report_name: 'zap-report.html'
+          # *** SỬA LỖI THAM SỐ ***
+          # Đổi 'report_name' thành 'artifact_name' và xóa 'report_title'.
+          # Tên này sẽ được dùng cho file zip chứa các báo cáo.
+          artifact_name: 'zap-scan-reports'
           
-          # (Tùy chọn nhưng khuyến khích)
-          # Không làm sập workflow nếu chỉ tìm thấy các cảnh báo (Warning)
-          # Điều này giúp CI/CD không bị gián đoạn bởi các vấn đề không quá nghiêm trọng.
+          # Giữ nguyên tùy chọn này để workflow không bị lỗi đỏ nếu chỉ có cảnh báo.
           fail_action: false
