@@ -1,4 +1,4 @@
-# File: .github/workflows/performance-test.yml (PHIÊN BẢN SỬA LỖI CUỐI CÙNG)
+# File: .github/workflows/performance-test.yml (PHIÊN BẢN CHUẨN)
 
 name: Website Performance Test
 
@@ -26,14 +26,10 @@ jobs:
       - name: 2. Run k6 test
         uses: grafana/k6-action@v0.3.1
         with:
-          # Đường dẫn đến file kịch bản
+          # Chỉ định file kịch bản
           filename: tests/website-flow.js
-
-          # --- THAY ĐỔI QUAN TRỌNG NHẤT NẰM Ở ĐÂY ---
-          # Sử dụng `flags` để truyền trực tiếp các tham số dòng lệnh cho k6
-          # Điều này sẽ ghi đè lên các giá trị trong khối `options` của script.
-          flags: --vus ${{ github.event.inputs.virtual_users }} --duration ${{ github.event.inputs.duration }}
-
         env:
-          # Chúng ta vẫn cần `env` để truyền TARGET_URL, vì nó không phải là một flag tiêu chuẩn của k6
+          # --- QUAY TRỞ LẠI DÙNG `env` ĐỂ TRUYỀN TẤT CẢ CÁC GIÁ TRỊ ---
           TARGET_URL: 'https://cert.khoindvn.io.vn'
+          VUS: ${{ github.event.inputs.virtual_users }}
+          DURATION: ${{ github.event.inputs.duration }}
