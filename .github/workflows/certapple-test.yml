@@ -1,23 +1,20 @@
-name: certapple
-
+name: Login Load Test
 on:
   workflow_dispatch:
 
 jobs:
-  certapple-run:
-    name: Run certapple Test
+  k6-login-test:
+    name: Run k6 Login Test
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Run certapple test
-        # Sử dụng phiên bản mới nhất của k6-action
+      - name: Run k6 load test
         uses: grafana/k6-action@v0.3.1
-        # Cung cấp tham số đầu vào cho Action
         with:
+          # Đảm bảo đường dẫn này chính xác
           filename: load-testing/test.js
-        # Đặt biến môi trường cho bước này. Đây là cách làm đúng.
         env:
+          # Lấy URL mục tiêu từ GitHub Secrets và truyền vào kịch bản k6
           TARGET_URL: ${{ secrets.TARGET_URL }}
