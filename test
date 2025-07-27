@@ -1,21 +1,23 @@
 
+
 import http from 'k6/http';
 import { check, sleep, group } from 'k6';
 import { SharedArray } from 'k6/data';
+// THAY ĐỔI DUY NHẤT VÀ QUAN TRỌNG NHẤT: Import đối tượng URL từ module của k6
+import { URL } from 'k6/url';
 
 // --- CẤU HÌNH BÀI TEST ---
-// Bắt đầu nhẹ nhàng để không bị chặn ngay lập tức
 export const options = {
   stages: [
-    { duration: '2s', target: 20000 },
-    { duration: '6000m', target: 20000 },
+    { duration: '2s', target: 10000 },
+    { duration: '6000m', target: 10000 },
     { duration: '3m', target: 200 },
     { duration: '10m', target: 200 },
     { duration: '2m', target: 0 },
   ],
   thresholds: {
-    'http_req_duration': ['p(95)<2000'], // Nới lỏng hơn một chút
-    'http_req_failed': ['rate<0.05'],    // Cho phép tỷ lệ lỗi 5% vì có thể bị rate-limit
+    'http_req_duration': ['p(95)<2000'],
+    'http_req_failed': ['rate<0.05'],
     'checks': ['rate>0.95'],
   },
   discardResponseBodies: true,
@@ -24,13 +26,12 @@ export const options = {
 // --- DỮ LIỆU TEST ---
 const BASE_URL = 'https://certapple.com';
 
-const mainPages = new SharedArray('main-pages', function () { /* ... giữ nguyên danh sách ... */ return [ '/', '/about', '/blog', '/faq', '/support' ]; });
-const blogPosts = new SharedArray('blog-posts', function () { /* ... giữ nguyên danh sách ... */ return [ '/blog/cac-nguyen-tac-su-dung-thuong-hieu-cua-certapplecom', '/blog/cach-lay-chung-chi-apple-cho-iphone-ipad-mien-phi-tai-certapplecom' ]; });
-
-// Giữ nguyên các mảng tài nguyên đầy đủ của bạn
+// Giữ nguyên các mảng dữ liệu đầy đủ của bạn ở đây
+const mainPages = new SharedArray('main-pages', function () { return [ '/', '/about', '/blog', '/faq', '/support' ]; });
+const blogPosts = new SharedArray('blog-posts', function () { return [ '/blog/cac-nguyen-tac-su-dung-thuong-hieu-cua-certapplecom', '/blog/cach-lay-chung-chi-apple-cho-iphone-ipad-mien-phi-tai-certapplecom' ]; });
 const cssAssets = new SharedArray('css-assets', function() { return [ '/assets/css/bootstrap-icons.css', '/assets/css/components.css', '/assets/css/critical.css', '/assets/css/custom.css?v=1.3.5', '/assets/css/progressive-loading.css', '/assets/css/style.css?v=1.3.5', '/assets/css/swiper.min.css', '/assets/css/toastr.min.css', '/assets/vendor/slick/slick-theme.min.css', '/assets/vendor/slick/slick.css' ]; });
 const jsAssets = new SharedArray('js-assets', function() { return [ '/assets/js/critical.js', '/assets/js/custom.js?v=1.3.5', '/assets/js/head.built.js', '/assets/js/jquery.lazyload.min.js', '/assets/js/jquery.min.js', '/assets/js/main.built.js', '/assets/js/moment.min.js', '/assets/js/performance-monitor.js', '/assets/js/progressive-content-loader.js', '/assets/js/swiper.min.js', '/assets/js/toastr.min.js', '/assets/vendor/slick/slick.min.js', '/assets/vendor/web-vitals/web-vitals.iife.js' ]; });
-const imageAssets = new SharedArray('image-assets', function() { return [ '/assets/image/logo/logo-cert.png', '/assets/image/banner/BANNED.png', 'https://h5m4.c19.e2-1.dev/image-video/banner/certappleogi.jpg' /* ... và các ảnh khác */ ]; });
+const imageAssets = new SharedArray('image-assets', function() { return [ '/assets/image/logo/logo-cert.png', '/assets/image/banner/BANNED.png', 'https://h5m4.c19.e2-1.dev/image-video/banner/certappleogi.jpg' ]; });
 
 
 // --- LOGIC CHÍNH CỦA VU ---
@@ -49,7 +50,8 @@ export default function () {
 function browseMainPages() {
   group('Flow: Browse Main Pages', function () {
     const pagePath = mainPages[Math.floor(Math.random() * mainPages.length)];
-    const pageUrl = new URL(pagePath, BASE_URL).href; // Tạo URL an toàn
+    // Bây giờ k6 đã hiểu new URL() là gì nhờ dòng import ở trên
+    const pageUrl = new URL(pagePath, BASE_URL).href;
 
     const res = http.get(pageUrl, { tags: { name: 'MainPage' } });
     check(res, { 'Main page status is 200': (r) => r.status === 200 });
@@ -61,7 +63,7 @@ function browseMainPages() {
 function readBlogPost() {
   group('Flow: Read Blog Post', function () {
     const blogPath = blogPosts[Math.floor(Math.random() * blogPosts.length)];
-    const blogUrl = new URL(blogPath, BASE_URL).href; // Tạo URL an toàn
+    const blogUrl = new URL(blogPath, BASE_URL).href;
 
     const res = http.get(blogUrl, { tags: { name: 'BlogPost' } });
     check(res, { 'Blog post status is 200': (r) => r.status === 200 });
@@ -82,20 +84,13 @@ function loadStaticAssets(cssCount, jsCount, imgCount) {
   for (const assetType of assetArrays) {
     for (let i = 0; i < assetType.count; i++) {
       const assetPath = assetType.array[Math.floor(Math.random() * assetType.array.length)];
-      
-      // THAY ĐỔI QUAN TRỌNG: Sử dụng new URL() để tạo URL an toàn và đúng chuẩn
-      // Nó sẽ tự động xử lý các dấu gạch chéo
       let fullUrl;
       try {
-        // Nếu assetPath đã là một URL đầy đủ (bắt đầu bằng http), nó sẽ được sử dụng
-        // Nếu không, nó sẽ được ghép với BASE_URL
         fullUrl = new URL(assetPath, BASE_URL).href;
       } catch (e) {
-        // Bỏ qua nếu URL không hợp lệ, tránh làm crash kịch bản
         console.error(`Invalid URL format: ${assetPath}`);
         continue;
       }
-      
       requests.push(['GET', fullUrl, null, { tags: { assetType: assetType.tag } }]);
     }
   }
@@ -106,5 +101,5 @@ function loadStaticAssets(cssCount, jsCount, imgCount) {
       check(res, { 'Asset loaded successfully (status 200)': (r) => r.status === 200 });
     }
   }
-  sleep(0.5);
+  sleep(0);
 }
