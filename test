@@ -1,16 +1,14 @@
 
-
 import http from 'k6/http';
 import { check, sleep, group } from 'k6';
 import { SharedArray } from 'k6/data';
-// THAY ĐỔI DUY NHẤT VÀ QUAN TRỌNG NHẤT: Import đối tượng URL từ module của k6
-import { URL } from 'k6/url';
+// KHÔNG import { URL } from 'k6/url'; nữa
 
 // --- CẤU HÌNH BÀI TEST ---
 export const options = {
   stages: [
-    { duration: '2s', target: 10000 },
-    { duration: '6000m', target: 10000 },
+    { duration: '2s', target: 20000 },
+    { duration: '6000m', target: 20000 },
     { duration: '3m', target: 200 },
     { duration: '10m', target: 200 },
     { duration: '2m', target: 0 },
@@ -26,12 +24,74 @@ export const options = {
 // --- DỮ LIỆU TEST ---
 const BASE_URL = 'https://certapple.com';
 
-// Giữ nguyên các mảng dữ liệu đầy đủ của bạn ở đây
-const mainPages = new SharedArray('main-pages', function () { return [ '/', '/about', '/blog', '/faq', '/support' ]; });
-const blogPosts = new SharedArray('blog-posts', function () { return [ '/blog/cac-nguyen-tac-su-dung-thuong-hieu-cua-certapplecom', '/blog/cach-lay-chung-chi-apple-cho-iphone-ipad-mien-phi-tai-certapplecom' ]; });
-const cssAssets = new SharedArray('css-assets', function() { return [ '/assets/css/bootstrap-icons.css', '/assets/css/components.css', '/assets/css/critical.css', '/assets/css/custom.css?v=1.3.5', '/assets/css/progressive-loading.css', '/assets/css/style.css?v=1.3.5', '/assets/css/swiper.min.css', '/assets/css/toastr.min.css', '/assets/vendor/slick/slick-theme.min.css', '/assets/vendor/slick/slick.css' ]; });
-const jsAssets = new SharedArray('js-assets', function() { return [ '/assets/js/critical.js', '/assets/js/custom.js?v=1.3.5', '/assets/js/head.built.js', '/assets/js/jquery.lazyload.min.js', '/assets/js/jquery.min.js', '/assets/js/main.built.js', '/assets/js/moment.min.js', '/assets/js/performance-monitor.js', '/assets/js/progressive-content-loader.js', '/assets/js/swiper.min.js', '/assets/js/toastr.min.js', '/assets/vendor/slick/slick.min.js', '/assets/vendor/web-vitals/web-vitals.iife.js' ]; });
-const imageAssets = new SharedArray('image-assets', function() { return [ '/assets/image/logo/logo-cert.png', '/assets/image/banner/BANNED.png', 'https://h5m4.c19.e2-1.dev/image-video/banner/certappleogi.jpg' ]; });
+// Danh sách các trang chính và trang tĩnh
+const mainPages = new SharedArray('main-pages', function () {
+  return [
+    '/', '/?PageSpeed=noscript', '/about', '/account/orders', '/block-ota', '/cookies', '/faq',
+    '/login-apple', '/login-github', '/login-google', '/password/forgot', '/privacy-policy',
+    '/support', '/terms-conditions', '/atom.xml', '/browserconfig.xml', '/opensearch.xml',
+    '/rss.xml', '/sitemap-index.xml', '/api/feed.json', '/manifest.json'
+  ];
+});
+
+// Danh sách các bài viết blog
+const blogPosts = new SharedArray('blog-posts', function () {
+  return [
+    '/blog', '/blog/cac-nguyen-tac-su-dung-thuong-hieu-cua-certapplecom',
+    '/blog/cach-lay-chung-chi-apple-cho-iphone-ipad-mien-phi-tai-certapplecom',
+    '/blog/chinh-sach-bao-mat-ung-dung-certapple',
+    '/blog/chinh-sach-du-lieu-nguoi-dung-cua-certapple-api-services',
+    '/blog/chuong-trinh-dai-ly-ky-quy', '/blog/chuong-trinh-tiep-thi-lien-ket',
+    '/blog/dieu-khoan-dich-vu-api-cua-certapplecom',
+    '/blog/gioi-thieu-ve-tinh-nang-bao-ve-thiet-bi-khi-bi-danh-cap-cho-iphone',
+    '/blog/huong-dan-su-dung-esign-de-cai-ipa-tren-cac-thiet-bi-iphoneipad',
+    '/blog/ios-16-developer-mode-bi-an-cach-bat-developer-mode-bi-an-tren-iphone'
+  ];
+});
+
+// Danh sách tài nguyên CSS
+const cssAssets = new SharedArray('css-assets', function() {
+    return [
+        '/assets/css/bootstrap-icons.css', '/assets/css/components.css', '/assets/css/critical.css',
+        '/assets/css/custom.css?v=1.3.5', '/assets/css/progressive-loading.css', '/assets/css/style.css?v=1.3.5',
+        '/assets/css/swiper.min.css', '/assets/css/toastr.min.css', '/assets/vendor/slick/slick-theme.min.css',
+        '/assets/vendor/slick/slick.css'
+    ];
+});
+
+// Danh sách tài nguyên JavaScript
+const jsAssets = new SharedArray('js-assets', function() {
+    return [
+        '/assets/js/critical.js', '/assets/js/custom.js?v=1.3.5', '/assets/js/head.built.js',
+        '/assets/js/jquery.lazyload.min.js', '/assets/js/jquery.min.js', '/assets/js/main.built.js',
+        '/assets/js/moment.min.js', '/assets/js/performance-monitor.js', '/assets/js/progressive-content-loader.js',
+        '/assets/js/swiper.min.js', '/assets/js/toastr.min.js', '/assets/vendor/slick/slick.min.js',
+        '/assets/vendor/web-vitals/web-vitals.iife.js'
+    ];
+});
+
+// Danh sách tài nguyên hình ảnh
+const imageAssets = new SharedArray('image-assets', function() {
+    return [
+        '/assets/image/logo/logo-cert.png', '/assets/image/nganhang/xbinance.png.pagespeed.ic.MCCXlGvND_.png',
+        '/assets/image/nganhang/xpaypal.png.pagespeed.ic.XsR0vxB3Mc.png', '/assets/image/nganhang/xvietqr.png.pagespeed.ic.SFH5YdBSn8.png',
+        '/pagespeed_static/1.JiBnMqyl6S.gif', '/assets/image/banner/BANNED.png', '/assets/image/favicon/favicon-16x16.png',
+        '/assets/image/favicon/favicon-32x32.png', '/assets/image/favicon/favicon.svg', '/assets/image/guides/p12-installation-steps.jpg',
+        '/assets/image/guides/p12-installation.jpg', '/assets/image/guides/step-1.jpg', '/assets/image/guides/step-2.jpg',
+        '/assets/image/guides/step-3.jpg', '/assets/image/guides/step-4.jpg', '/assets/image/icon/linked.png',
+        '/assets/image/icons/icon-144x144.png', '/assets/image/logo/apple-icon-114x114.png', '/assets/image/logo/apple-icon-120x120.png',
+        '/assets/image/logo/apple-icon-144x144.png', '/assets/image/logo/apple-icon-152x152.png', '/assets/image/logo/apple-icon-180x180.png',
+        '/assets/image/logo/apple-icon-57x57.png', '/assets/image/logo/apple-icon-60x60.png', '/assets/image/logo/apple-icon-72x72.png',
+        '/assets/image/logo/apple-icon-76x76.png', '/assets/image/logo/favicon-16x16.png', '/assets/image/logo/favicon-32x32.png',
+        '/assets/image/logo/favicon-96x96.png', '/assets/image/logo/favicon.ico', '/assets/image/logo/logo.png',
+        '/assets/image/logo/logo.svg', '/assets/image/logo/ms-icon-144x144.png', '/assets/image/screenshots/app-interface.jpg',
+        '/assets/image/thumbnail/thumbnail.jpg', '/assets/image/video-thumbnails/p12-installation-guide.jpg',
+        'https://h5m4.c19.e2-1.dev/image-video/banner/certappleogi.jpg', 'https://h5m4.c19.e2-1.dev/image-video/blog/24h.png',
+        'https://h5m4.c19.e2-1.dev/image-video/blog/affiliate-marketing-program.jpg', 'https://h5m4.c19.e2-1.dev/image-video/blog/api-terms-of-service.jpg',
+        'https://h5m4.c19.e2-1.dev/image-video/blog/application-privacy-policy.jpg', 'https://h5m4.c19.e2-1.dev/image-video/blog/asset-124-at-7x.png',
+        'https://h5m4.c19.e2-1.dev/image-video/logo/android-icon-192x192.png', 'https://h5m4.c19.e2-1.dev/image-video/logo/logocertapple.png'
+    ];
+});
 
 
 // --- LOGIC CHÍNH CỦA VU ---
@@ -42,16 +102,16 @@ export default function () {
   } else {
     readBlogPost();
   }
-  sleep(Math.random() * 3 + 2); // Nghỉ từ 2-5 giây
+  sleep(Math.random() * 0 + 0); // Nghỉ từ 2-5 giây
 }
+
 
 // --- CÁC LUỒNG HÀNH VI (USER FLOWS) ---
 
 function browseMainPages() {
   group('Flow: Browse Main Pages', function () {
     const pagePath = mainPages[Math.floor(Math.random() * mainPages.length)];
-    // Bây giờ k6 đã hiểu new URL() là gì nhờ dòng import ở trên
-    const pageUrl = new URL(pagePath, BASE_URL).href;
+    const pageUrl = `${BASE_URL}${pagePath}`;
 
     const res = http.get(pageUrl, { tags: { name: 'MainPage' } });
     check(res, { 'Main page status is 200': (r) => r.status === 200 });
@@ -63,7 +123,7 @@ function browseMainPages() {
 function readBlogPost() {
   group('Flow: Read Blog Post', function () {
     const blogPath = blogPosts[Math.floor(Math.random() * blogPosts.length)];
-    const blogUrl = new URL(blogPath, BASE_URL).href;
+    const blogUrl = `${BASE_URL}${blogPath}`;
 
     const res = http.get(blogUrl, { tags: { name: 'BlogPost' } });
     check(res, { 'Blog post status is 200': (r) => r.status === 200 });
@@ -72,34 +132,34 @@ function readBlogPost() {
   });
 }
 
-// Hàm tải tài nguyên tĩnh song song
 function loadStaticAssets(cssCount, jsCount, imgCount) {
-  const requests = [];
-  const assetArrays = [
-    { array: cssAssets, count: cssCount, tag: 'css' },
-    { array: jsAssets, count: jsCount, tag: 'js' },
-    { array: imageAssets, count: imgCount, tag: 'image' },
-  ];
+    const requests = [];
+    const assetArrays = [
+        { array: cssAssets, count: cssCount, tag: 'css' },
+        { array: jsAssets, count: jsCount, tag: 'js' },
+        { array: imageAssets, count: imgCount, tag: 'image' },
+    ];
 
-  for (const assetType of assetArrays) {
-    for (let i = 0; i < assetType.count; i++) {
-      const assetPath = assetType.array[Math.floor(Math.random() * assetType.array.length)];
-      let fullUrl;
-      try {
-        fullUrl = new URL(assetPath, BASE_URL).href;
-      } catch (e) {
-        console.error(`Invalid URL format: ${assetPath}`);
-        continue;
-      }
-      requests.push(['GET', fullUrl, null, { tags: { assetType: assetType.tag } }]);
+    for (const assetType of assetArrays) {
+        for (let i = 0; i < assetType.count; i++) {
+            const assetPath = assetType.array[Math.floor(Math.random() * assetType.array.length)];
+            
+            // Quay lại cách ghép chuỗi đơn giản, an toàn và tương thích
+            let fullUrl = assetPath;
+            // Nếu đường dẫn không bắt đầu bằng http, ghép nó với BASE_URL
+            if (!assetPath.startsWith('http')) {
+                fullUrl = `${BASE_URL}${assetPath}`;
+            }
+            
+            requests.push(['GET', fullUrl, null, { tags: { assetType: assetType.tag } }]);
+        }
     }
-  }
 
-  if (requests.length > 0) {
-    const responses = http.batch(requests);
-    for (const res of responses) {
-      check(res, { 'Asset loaded successfully (status 200)': (r) => r.status === 200 });
+    if (requests.length > 0) {
+        const responses = http.batch(requests);
+        for (const res of responses) {
+            check(res, { 'Asset loaded successfully (status 200)': (r) => r.status === 200 });
+        }
     }
-  }
-  sleep(0);
+    sleep(0);
 }
