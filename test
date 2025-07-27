@@ -6,8 +6,8 @@ randomSeed(__VU); // Mỗi VU sẽ có seed riêng để random khác nhau
 
 export const options = {
   stages: [
-    { duration: '2s', target: 20000 },  // Tăng lên 100 VUs trong 5 phút
-    { duration: '1000m', target: 20000 }, // Giữ ở 100 VUs trong 10 phút
+    { duration: '2s', target: 2000 },  // Tăng lên 100 VUs trong 5 phút
+    { duration: '1000m', target: 2000 }, // Giữ ở 100 VUs trong 10 phút
   ],
   thresholds: {
     'http_req_duration': ['p(95)<1000'],
