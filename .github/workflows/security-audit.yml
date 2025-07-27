@@ -18,7 +18,12 @@ jobs:
         with:
           node-version: 18
 
-      - name: Cài đặt Playwright và các trình duyệt
+      # --- BƯỚC QUAN TRỌNG ĐƯỢC THÊM VÀO ---
+      - name: Cài đặt các thư viện Node.js từ package.json
+        run: npm install
+      # ------------------------------------
+
+      - name: Tải về các trình duyệt cho Playwright
         run: npx playwright install --with-deps
 
       - name: Chạy Script Tấn Công Brute-Force Nâng Cao
