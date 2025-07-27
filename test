@@ -1,8 +1,6 @@
 
-
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
-
 const applep12_assets = [
 'https://applep12.com/js/optimized-language-detection.js',
 'https://applep12.com/assets/fonts/inter-v13-latin-400.woff2',
@@ -26,7 +24,6 @@ const applep12_assets = [
 'https://applep12.com/browserconfig.xml',
 'https://applep12.com/sitemap.xml',
 ];
-
 
 const certapple_assets = [
 'https://certapple.com/assets/css/style.css',
@@ -85,7 +82,6 @@ const certapple_assets = [
 'https://certapple.com/rss.xml',
 ];
 
-
 const other_assets = [
 'https://h5m4.c19.e2-1.dev/image-video/logo/logocertapple.png',
 'https://h5m4.c19.e2-1.dev/image-video/banner/certappleogi.jpg',
@@ -122,10 +118,6 @@ const other_assets = [
 'https://h5m4.c19.e2-1.dev/image-video/blog/escrow-agency-program.jpg',
 ];
 
-
-
-
-
 export const options = {
 stages: [
 { duration: '2s', target: 1000 },
@@ -139,15 +131,8 @@ thresholds: {
 },
 };
 
-
-
-
-
 export default function () {
-
-
 group('Hành trình người dùng trên applep12.com', function () {
-
 const applep12_responses = http.batch(applep12_assets.map(url => ['GET', url]));
 applep12_responses.forEach(res => {
 check(res, {
@@ -155,9 +140,7 @@ check(res, {
 });
 });
 
-
 group('API actions for applep12', function () {
-
 const loginPayload = JSON.stringify({ email: `user-${__VU}@test.com`, password: 'password123' });
 const loginParams = { headers: { 'Content-Type': 'application/json' } };
 const loginRes = http.post('https://applep12.com/login_post', loginPayload, loginParams);
@@ -166,11 +149,7 @@ check(loginRes, {
 });
 });
 });
-
-sleep(0);
-
 group('Hành trình người dùng trên certapple.com', function () {
-
 const certapple_responses = http.batch(certapple_assets.map(url => ['GET', url]));
 certapple_responses.forEach(res => {
 check(res, {
@@ -178,17 +157,13 @@ check(res, {
 });
 });
 
-
 const feedRes = http.get('https://certapple.com/api/feed.json');
 check(feedRes, {
 'certapple feed API status is 200': (r) => r.status === 200,
 });
 });
 
-sleep(0);
-
 group('Tải tài nguyên từ CDN khác', function () {
-
 const other_responses = http.batch(other_assets.map(url => ['GET', url]));
 other_responses.forEach(res => {
 check(res, {
@@ -196,4 +171,5 @@ check(res, {
 });
 });
 });
+sleep(0);
 }
