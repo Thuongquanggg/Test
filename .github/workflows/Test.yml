@@ -1,15 +1,30 @@
+# 🅾️ repo .github/workflows/Test.yml
+
+# Tên của toàn bộ workflow, sẽ hiển thị trong tab Actions
 name: K6 Load Test
+
+# Tên của mỗi lần chạy, giúp nhận biết ai đã trigger nó
 run-name: K6 Test run triggered by @${{ github.actor }}
+
 on:
+  # Chỉ cho phép chạy thủ công từ giao diện web của GitHub
   workflow_dispatch:
+
 jobs:
+  # Tên của job
   k6-load-test:
+    # Tên sẽ hiển thị cho job này trong giao diện
     name: Run K6 Load Test Script
     runs-on: ubuntu-latest
     steps:
+      # Bước 1: Checkout mã nguồn từ repository của bạn
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # Bước 2: Chạy kịch bản k6
       - name: Run k6 test
         uses: grafana/k6-action@v0.3.1
         with:
+          # SỬA LỖI QUAN TRỌNG: Cung cấp đường dẫn và tên file chính xác, bao gồm cả thư mục và đuôi .js
+          # Dựa trên cấu trúc bạn cung cấp, file nằm trong thư mục "Test" và tên là "test.js"
           filename: test
