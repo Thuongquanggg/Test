@@ -1,30 +1,36 @@
-# 🅾️ repo .github/workflows/Test.yml
 
-# Tên của toàn bộ workflow, sẽ hiển thị trong tab Actions
-name: K6 Load Test
+# Tên của toàn bộ workflow, hiển thị trong tab "Actions"
+name: k6 Load Test for Certapple
 
-# Tên của mỗi lần chạy, giúp nhận biết ai đã trigger nó
-run-name: K6 Test run triggered by @${{ github.actor }}
+# Tên của một lần chạy cụ thể, sẽ hiển thị URL được test
+run-name: Testing ${{ github.event.inputs.target_url }}
 
 on:
-  # Chỉ cho phép chạy thủ công từ giao diện web của GitHub
+  # Cho phép chạy workflow này thủ công từ giao diện GitHub
   workflow_dispatch:
+    inputs:
+      # THAY ĐỔI 1: Sửa mô tả và giá trị mặc định cho input
+      target_url:
+        description: 'URL của trang web cần test (ví dụ: https://certapple.com)'
+        required: true
+        default: 'https://certapple.com' # Giá trị mặc định là một URL hợp lệ
 
 jobs:
-  # Tên của job
-  k6-load-test:
-    # Tên sẽ hiển thị cho job này trong giao diện
-    name: Run K6 Load Test Script
+  k6-load-test-run: # Đổi tên job cho dễ hiểu
+    # THAY ĐỔI 2: Đổi tên job hiển thị trên giao diện
+    name: Run k6 Load Test
     runs-on: ubuntu-latest
     steps:
-      # Bước 1: Checkout mã nguồn từ repository của bạn
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      # Bước 2: Chạy kịch bản k6
       - name: Run k6 test
         uses: grafana/k6-action@v0.3.1
         with:
-          # SỬA LỖI QUAN TRỌNG: Cung cấp đường dẫn và tên file chính xác, bao gồm cả thư mục và đuôi .js
-          # Dựa trên cấu trúc bạn cung cấp, file nằm trong thư mục "Test" và tên là "test.js"
+          # THAY ĐỔI 3 (QUAN TRỌNG NHẤT): Chỉ định đúng tên file script .js của bạn
+          # Hãy đảm bảo tên file này khớp với tên file bạn đã lưu mã k6.
           filename: test
+        env:
+          # Dòng này đã đúng. Nó lấy input 'target_url' và gán vào biến môi trường TARGET_URL
+          # Kịch bản k6 của chúng ta sẽ đọc biến này (__ENV.TARGET_URL)
+          TARGET_URL: ${{ github.event.inputs.target_url }}
