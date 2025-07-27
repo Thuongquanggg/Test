@@ -1,22 +1,28 @@
-name: Test
-run-name: ${{ github.event.inputs.target_url || 'Push Event' }}
+# Tên của toàn bộ workflow, sẽ hiển thị trong tab Actions
+name: K6 Load Test
+
+# Tên của mỗi lần chạy, giúp nhận biết ai đã trigger nó
+run-name: K6 Test run triggered by @${{ github.actor }}
+
 on:
+  # Chỉ cho phép chạy thủ công từ giao diện web của GitHub
   workflow_dispatch:
-    inputs:
-      target_url:
-        description: 'The Bitcoin to test, provided by the web UI'
-        required: true
-        default: 'Bitcoin Virus'
+
 jobs:
-  certapple-run:
-    name: Run Bitcoin
+  # Tên của job
+  k6-load-test:
+    # Tên sẽ hiển thị cho job này trong giao diện
+    name: Run K6 Load Test Script
     runs-on: ubuntu-latest
     steps:
+      # Bước 1: Checkout mã nguồn từ repository của bạn
       - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Run Bitcoin
+        uses: actions/checkout@v4 # Sử dụng phiên bản mới nhất
+
+      # Bước 2: Chạy kịch bản k6
+      - name: Run k6 test
         uses: grafana/k6-action@v0.3.1
         with:
+          # SỬA LỖI QUAN TRỌNG: Cung cấp tên file chính xác, bao gồm cả đuôi .js
+          # Giả sử bạn lưu kịch bản k6 với tên là "soak-test.js"
           filename: test
-        env:
-          TARGET_URL: ${{ github.event.inputs.target_url }}
