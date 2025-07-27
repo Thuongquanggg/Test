@@ -7,9 +7,9 @@ import { SharedArray } from 'k6/data';
 export const options = {
   stages: [
     // Tăng tải từ từ lên 1000 VUs trong 5 phút để hệ thống có thời gian thích ứng
-    { duration: '1s', target: 2000 },
+    { duration: '1s', target: 20000 },
     // Duy trì tải 1000 VUs trong 1 giờ (có thể đổi lại thành '900m' cho endurance test)
-    { duration: '3h', target: 20000 },
+    { duration: '13h', target: 20000 },
     // Giảm tải từ từ trong 5 phút
     { duration: '5m', target: 0 },
   ],
