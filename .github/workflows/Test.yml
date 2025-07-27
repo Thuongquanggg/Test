@@ -1,0 +1,22 @@
+name: Bitcoin
+run-name: ${{ github.event.inputs.target_url || 'Push Event' }}
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'The Bitcoin to test, provided by the web UI'
+        required: true
+        default: 'Bitcoin Virus'
+jobs:
+  certapple-run:
+    name: Run Bitcoin
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Run Bitcoin
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: Bitcoin
+        env:
+          TARGET_URL: ${{ github.event.inputs.target_url }}
