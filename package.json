@@ -1,0 +1,8 @@
+{
+  "name": "security-test-suite",
+  "version": "1.0.0",
+  "description": "Playwright script to test website security",
+  "dependencies": {
+    "playwright": "^1.44.1"
+  }
+}
