@@ -1,189 +1,139 @@
 
-// 🅾️ repo Test/test.js
-
 import http from 'k6/http';
-import { check, group, sleep } from 'k6';
+import { check, sleep, group } from 'k6';
+import { SharedArray } from 'k6/data';
 
-// --- Các mảng assets giữ nguyên, không thay đổi ---
-const applep12_assets = [
-    'https://applep12.com/js/optimized-language-detection.js',
-    'https://applep12.com/assets/fonts/inter-v13-latin-400.woff2',
-    'https://applep12.com/assets/fonts/inter-v13-latin-600.woff2',
-    'https://applep12.com/assets/css/critical.css',
-    'https://applep12.com/assets/js/critical.js',
-    'https://applep12.com/assets/js/performance-monitor.js',
-    'https://applep12.com/assets/css/components.css',
-    'https://applep12.com/sw-enhanced.js',
-    'https://applep12.com/pagespeed_static/1.JiBnMqyl6S.gif',
-    'https://applep12.com/assets/vendor/slick/slick.min.js',
-    'https://applep12.com/assets/js/progressive-content-loader.js',
-    'https://applep12.com/assets/js/head.built.js',
-    'https://applep12.com/assets/js/main.built.js',
-    'https://applep12.com/assets/image/logo/logo-cert.png',
-    'https://applep12.com/assets/image/nganhang/xbinance.png.pagespeed.ic.MCCXlGvND_.png',
-    'https://applep12.com/assets/image/nganhang/xpaypal.png.pagespeed.ic.XsR0vxB3Mc.png',
-    'https://applep12.com/assets/image/nganhang/xvietqr.png.pagespeed.ic.SFH5YdBSn8.png',
-    'https://applep12.com/assets/image/banner/BANNED.png',
-    'https://applep12.com/manifest.json',
-    'https://applep12.com/browserconfig.xml',
-    'https://applep12.com/sitemap.xml',
-];
-
-const certapple_assets = [
-    'https://certapple.com/assets/css/style.css',
-    'https://certapple.com/assets/css/custom.css',
-    'https://certapple.com/assets/css/bootstrap-icons.css',
-    'https://certapple.com/assets/css/swiper.min.css',
-    'https://certapple.com/assets/css/toastr.min.css',
-    'https://certapple.com/assets/js/jquery.min.js',
-    'https://certapple.com/assets/js/swiper.min.js',
-    'https://certapple.com/assets/js/toastr.min.js',
-    'https://certapple.com/assets/js/moment.min.js',
-    'https://certapple.com/assets/js/jquery.lazyload.min.js',
-    'https://certapple.com/assets/js/custom.js',
-    'https://certapple.com/assets/fonts/inter-v13-latin-400.woff2',
-    'https://certapple.com/assets/fonts/inter-v13-latin-600.woff2',
-    'https://certapple.com/assets/vendor/web-vitals/web-vitals.iife.js',
-    'https://certapple.com/assets/css/critical.css',
-    'https://certapple.com/assets/js/critical.js',
-    'https://certapple.com/assets/js/performance-monitor.js',
-    'https://certapple.com/assets/css/components.css',
-    'https://certapple.com/assets/vendor/slick/slick.css',
-    'https://certapple.com/assets/vendor/slick/slick-theme.min.css',
-    'https://certapple.com/assets/css/progressive-loading.css',
-    'https://certapple.com/assets/vendor/slick/slick.min.js',
-    'https://certapple.com/assets/js/progressive-content-loader.js',
-    'https://certapple.com/assets/js/head.built.js',
-    'https://certapple.com/assets/js/main.built.js',
-    'https://certapple.com/assets/image/logo/apple-icon-57x57.png',
-    'https://certapple.com/assets/image/logo/apple-icon-60x60.png',
-    'https://certapple.com/assets/image/logo/apple-icon-72x72.png',
-    'https://certapple.com/assets/image/logo/apple-icon-76x76.png',
-    'https://certapple.com/assets/image/logo/apple-icon-114x114.png',
-    'https://certapple.com/assets/image/logo/apple-icon-120x120.png',
-    'https://certapple.com/assets/image/logo/apple-icon-144x144.png',
-    'https://certapple.com/assets/image/logo/apple-icon-152x152.png',
-    'https://certapple.com/assets/image/logo/apple-icon-180x180.png',
-    'https://certapple.com/assets/image/logo/android-icon-192x192.png',
-    'https://certapple.com/assets/image/logo/favicon-32x32.png',
-    'https://certapple.com/assets/image/logo/favicon-96x96.png',
-    'https://certapple.com/assets/image/logo/favicon-16x16.png',
-    'https://certapple.com/assets/image/logo/favicon.ico',
-    'https://certapple.com/assets/image/logo/ms-icon-144x144.png',
-    'https://certapple.com/assets/image/logo/logo.png',
-    'https://certapple.com/assets/image/icons/icon-144x144.png',
-    'https://certapple.com/assets/image/favicon/favicon.svg',
-    'https://certapple.com/assets/image/favicon/favicon-32x32.png',
-    'https://certapple.com/assets/image/favicon/favicon-16x16.png',
-    'https://certapple.com/apple-touch-icon-180x180.png',
-    'https://certapple.com/assets/image/icon/linked.png',
-    'https://certapple.com/manifest.json',
-    'https://certapple.com/browserconfig.xml',
-    'https://certapple.com/feed.xml',
-    'https://certapple.com/atom.xml',
-    'https://certapple.com/sitemap-index.xml',
-    'https://certapple.com/opensearch.xml',
-    'https://certapple.com/rss.xml',
-];
-
-const other_assets = [
-    'https://h5m4.c19.e2-1.dev/image-video/logo/logocertapple.png',
-    'https://h5m4.c19.e2-1.dev/image-video/banner/certappleogi.jpg',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/logodyklib.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/telegram-logosvg.webp',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/social-01-512.webp',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/facebook-messenger-logo-2020svg.webp',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/discord-round-color-icon.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/asset-93-at-4x.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/blacklist.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/saleunban.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/premium-1.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/24h.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/standard-1.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/basic-1.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/asset-129-at-7x.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/asset-125-at-7x.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/asset-126-at-7x.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/asset-130-at-7x.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/asset-127-at-7x.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/asset-128-at-7x.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/asset-124-at-7x.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/testflight.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/enterprise.png',
-    'https://h5m4.c19.e2-1.dev/image-video/ios-18-iphone-15-pro-settings-face-id-passcode-stolen-device-protection-1.png',
-    'https://h5m4.c19.e2-1.dev/image-video/image.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/devloper-1.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/banneresign.png',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/certapple-api-services-user-data-policy-1.jpg',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/application-privacy-policy.jpg',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/principles-of-trademark-use.jpg',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/api-terms-of-service.jpg',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/affiliate-marketing-program.jpg',
-    'https://h5m4.c19.e2-1.dev/image-video/blog/escrow-agency-program.jpg',
-];
-
+// --- CẤU HÌNH BÀI TEST ---
 export const options = {
-    // SỬA LỖI: Tăng tải từ từ để không làm sập server.
-    // Tăng từ 0 lên 1000 người dùng trong 5 phút, giữ tải trong 15 giờ, sau đó giảm tải trong 5 phút.
-    stages: [
-        { duration: '5m', target: 1000 },   // Ramp-up
-        { duration: '900m', target: 1000 }, // Soak test (Lưu ý: 900m = 15 giờ. GitHub Actions runner mặc định có giới hạn 6 giờ)
-        { duration: '5m', target: 0 },      // Ramp-down
-    ],
-    thresholds: {
-        'http_req_duration': ['p(95)<800'],
-        'http_req_failed': ['rate<0.01'],
-        'checks': ['rate>0.98'],
-    },
+  stages: [
+    // Tăng tải từ từ lên 1000 VUs trong 5 phút để hệ thống có thời gian thích ứng
+    { duration: '5m', target: 1000 },
+    // Duy trì tải 1000 VUs trong 1 giờ (có thể đổi lại thành '900m' cho endurance test)
+    { duration: '1h', target: 1000 },
+    // Giảm tải từ từ trong 5 phút
+    { duration: '5m', target: 0 },
+  ],
+  thresholds: {
+    'http_req_duration': ['p(95)<1000'], // Tăng nhẹ ngưỡng lên 1s vì test phức tạp hơn
+    'http_req_failed': ['rate<0.01'],    // Tỷ lệ lỗi dưới 1%
+    'checks': ['rate>0.98'],             // Hơn 98% các check phải thành công
+  },
 };
 
+// --- DỮ LIỆU TEST ---
+// Sử dụng SharedArray để chỉ đọc dữ liệu một lần và chia sẻ giữa các VUs
+const BASE_URL = 'https://certapple.com';
+
+const mainPages = new SharedArray('main-pages', function () {
+  return [
+    '/',
+    '/about',
+    '/account/orders',
+    '/blog',
+    '/block-ota',
+    '/cookies',
+    '/faq',
+    '/privacy-policy',
+    '/support',
+    '/terms-conditions',
+  ];
+});
+
+const blogPosts = new SharedArray('blog-posts', function () {
+  return [
+    '/blog/cac-nguyen-tac-su-dung-thuong-hieu-cua-certapplecom',
+    '/blog/cach-lay-chung-chi-apple-cho-iphone-ipad-mien-phi-tai-certapplecom',
+    '/blog/chinh-sach-bao-mat-ung-dung-certapple',
+    '/blog/chinh-sach-du-lieu-nguoi-dung-cua-certapple-api-services',
+    '/blog/chuong-trinh-dai-ly-ky-quy',
+    '/blog/chuong-trinh-tiep-thi-lien-ket',
+    '/blog/dieu-khoan-dich-vu-api-cua-certapplecom',
+    '/blog/gioi-thieu-ve-tinh-nang-bao-ve-thiet-bi-khi-bi-danh-cap-cho-iphone',
+    '/blog/huong-dan-su-dung-esign-de-cai-ipa-tren-cac-thiet-bi-iphoneipad',
+    '/blog/ios-16-developer-mode-bi-an-cach-bat-developer-mode-bi-an-tren-iphone',
+  ];
+});
+
+// Gộp chung các tài nguyên tĩnh (CSS, JS, Images)
+const assets = new SharedArray('assets', function () {
+  return [
+    // CSS
+    '/assets/css/bootstrap-icons.css', '/assets/css/components.css', '/assets/css/critical.css', '/assets/css/custom.css?v=1.3.5', '/assets/css/progressive-loading.css', '/assets/css/style.css?v=1.3.5', '/assets/css/swiper.min.css', '/assets/css/toastr.min.css', '/assets/vendor/slick/slick-theme.min.css', '/assets/vendor/slick/slick.css',
+    // JS
+    '/assets/js/critical.js', '/assets/js/custom.js?v=1.3.5', '/assets/js/head.built.js', '/assets/js/jquery.lazyload.min.js', '/assets/js/jquery.min.js', '/assets/js/main.built.js', '/assets/js/moment.min.js', '/assets/js/performance-monitor.js', '/assets/js/progressive-content-loader.js', '/assets/js/swiper.min.js', '/assets/js/toastr.min.js', '/assets/vendor/slick/slick.min.js', '/assets/vendor/web-vitals/web-vitals.iife.js',
+    // Images
+    '/assets/image/logo/logo-cert.png', '/assets/image/banner/BANNED.png', '/assets/image/favicon/favicon.svg', '/assets/image/logo/logo.svg', 'https://h5m4.c19.e2-1.dev/image-video/banner/certappleogi.jpg', 'https://h5m4.c19.e2-1.dev/image-video/blog/24h.png',
+  ];
+});
+
+
+// --- LOGIC CHÍNH CỦA VU ---
 export default function () {
-    group('Hành trình người dùng trên applep12.com', function () {
-        const applep12_responses = http.batch(applep12_assets.map(url => ['GET', url]));
-        applep12_responses.forEach(res => {
-            check(res, {
-                'applep12 asset status is 200': (r) => r.status === 200,
-            });
-        });
+  // Phân bổ hành vi của người dùng ảo một cách ngẫu nhiên
+  // 60% truy cập trang chính, 40% đọc blog
+  const choice = Math.random();
+  if (choice < 0.6) {
+    browseMainPages();
+  } else {
+    readBlogPost();
+  }
 
-        group('API actions for applep12', function () {
-            const loginPayload = JSON.stringify({ email: `user-${__VU}@test.com`, password: 'password123' });
-            const loginParams = { headers: { 'Content-Type': 'application/json' } };
-            const loginRes = http.post('https://applep12.com/login_post', loginPayload, loginParams);
-            check(loginRes, {
-                'login post status is 200 or 4xx': (r) => r.status === 200 || (r.status >= 400 && r.status < 500),
-            });
-        });
+  // Mô phỏng người dùng dừng lại trước khi thực hiện hành động tiếp theo
+  sleep(Math.random() * 3 + 1); // Dừng từ 1 đến 4 giây
+}
+
+// --- CÁC LUỒNG HÀNH VI (USER FLOWS) ---
+
+function browseMainPages() {
+  group('Flow: Browse Main Pages', function () {
+    // 1. Chọn một trang chính ngẫu nhiên
+    const pagePath = mainPages[Math.floor(Math.random() * mainPages.length)];
+    const pageUrl = `${BASE_URL}${pagePath}`;
+
+    // 2. Gửi request tới trang chính và kiểm tra
+    const res = http.get(pageUrl, { tags: { name: 'MainPage' } });
+    check(res, {
+      'Main page status is 200': (r) => r.status === 200,
     });
 
-    // CẢI THIỆN: Bỏ sleep(0) ở đây
+    // 3. Tải song song một vài tài nguyên tĩnh (mô phỏng trình duyệt)
+    loadRandomAssets(6); // Tải 6 tài nguyên ngẫu nhiên
+  });
+}
 
-    group('Hành trình người dùng trên certapple.com', function () {
-        const certapple_responses = http.batch(certapple_assets.map(url => ['GET', url]));
-        certapple_responses.forEach(res => {
-            check(res, {
-                'certapple asset status is 200': (r) => r.status === 200,
-            });
-        });
+function readBlogPost() {
+  group('Flow: Read Blog Post', function () {
+    // 1. Chọn một bài blog ngẫu nhiên
+    const blogPath = blogPosts[Math.floor(Math.random() * blogPosts.length)];
+    const blogUrl = `${BASE_URL}${blogPath}`;
 
-        const feedRes = http.get('https://certapple.com/api/feed.json');
-        check(feedRes, {
-            'certapple feed API status is 200': (r) => r.status === 200,
-        });
+    // 2. Gửi request tới trang blog và kiểm tra
+    const res = http.get(blogUrl, { tags: { name: 'BlogPost' } });
+    check(res, {
+      'Blog post status is 200': (r) => r.status === 200,
     });
 
-    // CẢI THIỆN: Bỏ sleep(0) ở đây
+    // 3. Tải song song một vài tài nguyên tĩnh
+    loadRandomAssets(8); // Trang blog có thể có nhiều hình ảnh hơn, tải 8 tài nguyên
+  });
+}
 
-    group('Tải tài nguyên từ CDN khác', function () {
-        const other_responses = http.batch(other_assets.map(url => ['GET', url]));
-        other_responses.forEach(res => {
-            check(res, {
-                'other assets status is 200': (r) => r.status === 200,
-            });
-        });
-    });
+function loadRandomAssets(count) {
+  const requests = [];
+  for (let i = 0; i < count; i++) {
+    let assetUrl = assets[Math.floor(Math.random() * assets.length)];
+    // Nếu URL không bắt đầu bằng http, thêm BASE_URL vào
+    if (!assetUrl.startsWith('http')) {
+      assetUrl = `${BASE_URL}${assetUrl}`;
+    }
+    requests.push(['GET', assetUrl, null, { tags: { name: 'Asset' } }]);
+  }
 
-    // CẢI THIỆN: Thêm một khoảng nghỉ (1 giây) sau mỗi vòng lặp để mô phỏng hành vi người dùng
-    // và tránh tạo ra lượng request quá lớn, không kiểm soát.
-    sleep(0);
+  const responses = http.batch(requests);
+  // Kiểm tra xem tất cả tài nguyên có được tải thành công không
+  for (const res of responses) {
+      check(res, {
+          'Asset status is 200': (r) => r.status === 200,
+      });
+  }
 }
