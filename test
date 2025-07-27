@@ -1,18 +1,41 @@
 import http from 'k6/http';
-import { check } from 'k6';
+import { check, sleep } from 'k6';
+import { randomSeed, randomIntBetween } from 'k6';
+
+randomSeed(__VU); // Mỗi user có một seed riêng
+
 export const options = {
-stages: [
+  vus: 2000,
+  thresholds: {
+    'http_req_duration': ['p(95)<1000'],
+    'http_req_failed': ['rate<0.01'],
+  },
+};
 
-{ duration: '2s', target: 20000 },
-{ duration: '900m', target: 20000 },
-{ duration: '5m', target: 0 },
+// Danh sách User-Agent giống trình duyệt thật
+const userAgents = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/114.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/14.1.2 Safari/605.1.15',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+  'Mozilla/5.0 (Linux; Android 11; SM-A505F) AppleWebKit/537.36 Chrome/110.0.0.0 Mobile Safari/537.36',
+];
 
-],
-thresholds: {
-'http_req_duration': ['p(95)<800'],
-'http_req_failed': ['rate<0.01'],},};
 export default function () {
-const targetUrl = __ENV.TARGET_URL || 'https://google.com';
-const res = http.get(targetUrl);
-check(res, {
-'status is 200': (r) => r.status === 200,});}
+  const targetUrl = __ENV.TARGET_URL || 'https://google.com';
+
+  const headers = {
+    'User-Agent': userAgents[randomIntBetween(0, userAgents.length - 1)],
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept': 'text/html,application/xhtml+xml',
+    'Connection': 'keep-alive',
+  };
+
+  const res = http.get(targetUrl, { headers });
+
+  check(res, {
+    'status is 200': (r) => r.status === 200,
+  });
+
+  // Ngủ ngẫu nhiên 1–5 giây để mô phỏng hành vi người dùng
+  sleep(randomIntBetween(1, 5));
+}
