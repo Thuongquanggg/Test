@@ -1,141 +1,18 @@
-
-import http from ‘k6/http’;
-import { check, sleep, group } from ‘k6’;
-// import { randomItem } from ‘k6/x/browser’; // <<< ĐÃ XÓA DÒNG NÀY
-import { URL } from ‘https://jslib.k6.io/url/1.0.0/index.js’;
-
-// <<< THÊM HÀM NÀY VÀO ĐỂ THAY THẾ
-// Hàm này có chức năng y hệt randomItem từ extension
-function randomItem(items) {
-if (!items || items.length === 0) {
-return undefined;
-}
-return items[Math.floor(Math.random() * items.length)];
-}
-
-const userAgents = [
-‘Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36’,
-‘Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Safari/605.1.15’,
-‘Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/109.0’,
-];
-
-const probingPaths = [’/wp-admin’, ‘/admin.php’, ‘/config.json’, ‘/.env’];
-
+import http from 'k6/http';
+import { check } from 'k6';
 export const options = {
-scenarios: {
-browsing_user: {
-executor: ‘ramping-vus’,
-startVUs: 0,
 stages: [
-{ duration: ‘1s’, target: 10000 },
-{ duration: ‘150m’, target: 10000 },
-{ duration: ‘3m’, target: 5000 },
-{ duration: ‘20m’, target: 5000 },
-{ duration: ‘5m’, target: 0 },
+
+{ duration: '2s', target: 20000 },
+{ duration: '900m', target: 20000 },
+{ duration: '5m', target: 0 },
+
 ],
-gracefulRampDown: ‘30s’,
-},
-},
 thresholds: {
-‘http_req_failed’: [‘rate<0.05’],
-‘http_req_duration’: [‘p(95)<2000’],
-},
-};
-
-export function setup() {
-const baseUrl = __ENV.TARGET_URL || ‘https://your-website.com’;
-const res = http.get(baseUrl);
-// Thêm kiểm tra nếu trang web không tải được
-if (res.status !== 200) {
-console.error(Setup failed: Could not fetch base URL. Status: ${res.status});
-return { initialLinks: [] };
-}
-const doc = res.html();
-const initialLinks = [];
-doc.find(‘a’).each((i, el) => {
-const href = el.attr(‘href’);
-if (href && (href.startsWith(’/’) || href.startsWith(baseUrl))) {
-initialLinks.push(href);
-}
-});
-return { initialLinks: initialLinks };
-}
-
-export default function (data) {
-const baseUrl = __ENV.TARGET_URL || ‘https://your-website.com’;
-
-let referer = baseUrl;
-let etag = ‘’;
-
-const userAgent = randomItem(userAgents);
-
-group(‘User Journey Simulation’, function () {
-
-let nextUrl;
-
-if (Math.random() < 0.9 && data.initialLinks && data.initialLinks.length > 0) {
-nextUrl = randomItem(data.initialLinks);
-} else {
-nextUrl = randomItem(probingPaths);
-}
-
-// Nếu không chọn được URL nào, dừng vòng lặp này
-if (!nextUrl) {
-return;
-}
-
-const url = new URL(nextUrl, baseUrl);
-
-const headers = {
-‘User-Agent’: userAgent,
-‘Accept’: ‘text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,/;q=0.8’,
-‘Accept-Language’: ‘en-US,en;q=0.5’,
-‘Accept-Encoding’: ‘gzip, deflate, br’,
-‘Referer’: referer,
-};
-
-if (etag) {
-headers[‘If-None-Match’] = etag;
-}
-
-const res = http.get(url.toString(), { headers: headers });
-
+'http_req_duration': ['p(95)<800'],
+'http_req_failed': ['rate<0.01'],},};
+export default function () {
+const targetUrl = __ENV.TARGET_URL || 'https://google.com';
+const res = http.get(targetUrl);
 check(res, {
-‘is status 200 (OK)’: (r) => r.status === 200,
-‘is status 304 (Not Modified)’: (r) => r.status === 304,
-});
-
-if (res.status === 200) {
-
-etag = res.headers[‘Etag’] || ‘’;
-
-const doc = res.html();
-const assetUrls = [];
-
-doc.find(‘link[href], script[src], img[src]’).each((i, el) => {
-const src = el.attr(‘href’) || el.attr(‘src’);
-if (src && !src.startsWith(‘data:’)) {
-assetUrls.push(new URL(src, baseUrl).toString());
-}
-});
-
-if (assetUrls.length > 0) {
-const assetsToLoad = assetUrls.slice(0, 6);
-http.batch(assetsToLoad.map(assetUrl => [‘GET’, assetUrl, null, { headers: { ‘Referer’: url.toString() } }]));
-}
-
-// Cập nhật lại danh sách link để dùng cho các VU khác
-data.initialLinks = [];
-doc.find(‘a’).each((i, el) => {
-const href = el.attr(‘href’);
-if (href && (href.startsWith(’/’) || href.startsWith(baseUrl))) {
-data.initialLinks.push(href);
-}
-});
-}
-
-referer = url.toString();
-
-sleep(Math.random() * 0 + 0);
-});
-}
+'status is 200': (r) => r.status === 200,});}
