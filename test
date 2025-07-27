@@ -1,42 +1,35 @@
 import http from 'k6/http';
-import { check, sleep } from 'k6';
-import { randomSeed, randomIntBetween } from 'k6';
-
-randomSeed(__VU); // Mỗi VU sẽ có seed riêng để random khác nhau
+import { check } from 'k6';
 
 export const options = {
   stages: [
-    { duration: '2s', target: 2000 },  // Tăng lên 100 VUs trong 5 phút
-    { duration: '1000m', target: 2000 }, // Giữ ở 100 VUs trong 10 phút
+    { duration: '2s', target: 1000 },   // Tăng lên 1000 VU trong 2s
+    { duration: '1000m', target: 1000 },  // Giữ 1000 VU trong 10 phút
+    { duration: '2m', target: 0 },      // Giảm dần về 0
   ],
   thresholds: {
-    'http_req_duration': ['p(95)<1000'],
+    'http_req_duration': ['p(95)<800'],
     'http_req_failed': ['rate<0.01'],
   },
 };
 
-const userAgents = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/114.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/14.1.2 Safari/605.1.15',
-  'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
-  'Mozilla/5.0 (Linux; Android 11; SM-A505F) AppleWebKit/537.36 Chrome/110.0.0.0 Mobile Safari/537.36',
-];
-
 export default function () {
-  const targetUrl = __ENV.TARGET_URL || 'https://google.com';
+  const targetUrl = (__ENV.TARGET_URL || 'https://google.com').trim();
 
-  const headers = {
-    'User-Agent': userAgents[randomIntBetween(0, userAgents.length - 1)],
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Accept': 'text/html,application/xhtml+xml',
-    'Connection': 'keep-alive',
-  };
+  let res;
+  try {
+    res = http.get(targetUrl);
+  } catch (e) {
+    console.error(`❌ Exception in http.get(): ${e.message}`);
+    return;
+  }
 
-  const res = http.get(targetUrl, { headers });
+  if (!res || typeof res.status !== 'number') {
+    console.error('❌ Response is null or malformed:', res);
+    return;
+  }
 
   check(res, {
     'status is 200': (r) => r.status === 200,
   });
-
-  sleep(randomIntBetween(1, 5)); // Nghỉ từ 1 đến 5 giây trước lần tiếp theo
 }
