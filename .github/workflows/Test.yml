@@ -1,4 +1,4 @@
-name: Bitcoin
+name: Test
 run-name: ${{ github.event.inputs.target_url || 'Push Event' }}
 on:
   workflow_dispatch:
