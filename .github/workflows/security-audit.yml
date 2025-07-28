@@ -1,63 +1,25 @@
-# .github/workflows/security-test.yml
-# Tên của quy trình làm việc (workflow), sẽ hiển thị trên tab Actions của GitHub
 name: 'Kiểm tra Bảo mật (DoS/Payload Lớn)'
-
-# Cấu hình các sự kiện sẽ kích hoạt workflow này
 on:
-  # 1. Kích hoạt khi có code được đẩy lên nhánh `main`
   push:
     branches: [ "main" ]
-  
-  # 2. Cho phép chạy thủ công từ giao diện GitHub Actions
-  # Đây là lựa chọn tốt nhất cho các bài test có khả năng gây gián đoạn
   workflow_dispatch:
-
-# Định nghĩa các công việc (jobs) sẽ được thực thi
 jobs:
-  # Tên của job (bạn có thể có nhiều job chạy song song hoặc tuần tự)
   run-dos-test:
-    # Tên hiển thị cho job trên giao diện GitHub
     name: 'Chạy Script Tấn công Payload Lớn'
-    
-    # Chọn loại máy ảo để chạy job. 'ubuntu-latest' là lựa chọn phổ biến và tiết kiệm chi phí.
     runs-on: ubuntu-latest
-
-    # Các bước (steps) sẽ được thực thi tuần tự trong job này
     steps:
-      # Bước 1: Checkout code từ repository về máy ảo
       - name: '1. Tải mã nguồn về'
         uses: actions/checkout@v4
-
-      # Bước 2: Cài đặt môi trường Node.js
       - name: '2. Cài đặt Node.js (phiên bản 20.x)'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          # Sử dụng cache để tăng tốc độ cài đặt cho các lần chạy sau
           cache: 'npm'
-
-      # Bước 3: Cài đặt các thư viện cần thiết từ package.json
       - name: '3. Cài đặt các dependencies (bao gồm Playwright)'
-        # 'npm ci' nhanh và an toàn hơn 'npm install' cho môi trường CI/CD
         run: npm install
-
-      # Bước 4: Cài đặt các trình duyệt cho Playwright
-      # Đây là bước bắt buộc vì máy ảo mặc định không có sẵn trình duyệt của Playwright
       - name: '4. Cài đặt trình duyệt cho Playwright'
-        # '--with-deps' sẽ tự động cài các thư viện hệ thống cần thiết cho trình duyệt trên Linux
         run: npx playwright install --with-deps
-
-      # Bước 5: Chạy script kiểm thử
       - name: '5. Chạy script kiểm tra tấn công'
-        # Chạy file script của bạn bằng Node.js
         run: node attack_script_dos_test.js
 
-      # (Tùy chọn) Bước 6: Lưu lại log nếu cần
-      # Mặc dù log đã hiển thị trên giao diện, bạn có thể lưu nó thành file để tải về
-      # Để làm điều này, bạn cần sửa script để ghi log ra file, ví dụ: 'node attack_script_dos_test.js > test-log.txt'
-      # - name: '6. Lưu trữ kết quả log'
-      #   uses: actions/upload-artifact@v4
-      #   if: always() # Luôn chạy bước này, dù các bước trước thành công hay thất bại
-      #   with:
-      #     name: dos-test-log
-      #     path: test-log.txt
+    
