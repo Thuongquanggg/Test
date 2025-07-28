@@ -1,8 +1,9 @@
 # .github/workflows/Test.yml
 
-name: K6 Load Test On-Demand
+name: K6 Load Test On-Demand (Old Version)
 
 on:
+  # Cho phép kích hoạt workflow bằng tay hoặc qua API
   workflow_dispatch:
     inputs:
       target_url:
@@ -14,20 +15,21 @@ jobs:
   k6-load-test-run:
     name: Run k6 Load Test
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    
+    # Một lần chạy chỉ mất khoảng 2.5 phút, nên 5 phút là đủ an toàn
+    timeout-minutes: 600
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Run k6 test
+        # Quay lại phiên bản action cũ v0.3.1 như bạn muốn
         uses: grafana/k6-action@v0.3.1
         with:
-          # SỬA LỖI Ở ĐÂY:
-          # Chỉ định rõ phiên bản k6 mới nhất để hỗ trợ "iterations"
-          k6-version: latest
-          
-          # Đường dẫn file script vẫn giữ nguyên
+          # Đường dẫn tới file script, chỉ cần tên file
           filename: test.js
+          # Bỏ đi 'k6_version' vì phiên bản này không hỗ trợ
         env:
+          # Truyền URL từ input vào biến môi trường cho k6
           K6_TARGET_URL: ${{ inputs.target_url }}
