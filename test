@@ -9,7 +9,7 @@ export const options = {
     { duration: '2s', target: 1000 },
     
     // Giai đoạn 2: Tăng vọt lên 10,000 VUs trong 1 phút để gây sốc
-    { duration: '1m', target: 10000 },
+    { duration: '300m', target: 10000 },
     
     // Giai đoạn 3: Duy trì 10,000 VUs tấn công liên tục trong 2 phút
     { duration: '222m', target: 10000 },
