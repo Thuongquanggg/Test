@@ -1,26 +1,30 @@
 # .github/workflows/Test.yml
-name: Héc Cơ
 
-# THAY ĐỔI Ở ĐÂY:
-# Bỏ 'workflow_call' và thay bằng 'workflow_dispatch'.
-# 'workflow_dispatch' cho phép bạn kích hoạt workflow này bằng tay
-# hoặc thông qua API (chính là cách mà file HTML của bạn đang làm).
+name: K6 Load Test On-Demand
+
 on:
+  # Cho phép kích hoạt workflow này bằng tay từ tab Actions của GitHub
+  # hoặc thông qua API (được sử dụng bởi giao diện web của bạn).
   workflow_dispatch:
-    # Định nghĩa các đầu vào (inputs) mà workflow này chấp nhận.
-    # Tên 'target_url' phải khớp với tên được gửi từ JavaScript.
     inputs:
       target_url:
-        description: 'URL/Tên Wifi cần test (từ giao diện web)'
+        description: 'URL hoặc Tên Wifi cần test'
         required: true
         type: string
 
 jobs:
   k6-load-test-run:
     name: Run k6 Load Test
-    # Đổi tên job để hiển thị tên Wifi được test cho dễ theo dõi
-    # Dấu '||' là để phòng trường hợp input không có, nó sẽ không bị lỗi.
     runs-on: ubuntu-latest
+    
+    # TÍNH TOÁN THỜI GIAN:
+    # 1 chu trình = 2s + 2m18s + 10s = 2 phút 30 giây
+    # Thời gian nghỉ = 30 giây
+    # Tổng thời gian 1 vòng lặp = 3 phút
+    # Lặp 5 lần = 3 phút * 5 = 15 phút
+    # => Đặt timeout lớn hơn 15 phút để đảm bảo an toàn.
+    timeout-minutes: 2000
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,8 +32,8 @@ jobs:
       - name: Run k6 test
         uses: grafana/k6-action@v0.3.1
         with:
-          # File script k6 không thay đổi
-          filename: Test/test
+          # Chỉ định đúng file script k6
+          filename: Test/test.js
         env:
-          # Cách lấy input vẫn giữ nguyên
+          # Truyền URL từ input của workflow vào biến môi trường cho k6
           K6_TARGET_URL: ${{ inputs.target_url }}
