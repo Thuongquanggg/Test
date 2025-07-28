@@ -1,35 +1,23 @@
 # .github/workflows/Test.yml
-
-name: K6 Load Test On-Demand (Old Version)
-
+name: https://certapple.com
 on:
-  # Cho phép kích hoạt workflow bằng tay hoặc qua API
   workflow_dispatch:
     inputs:
       target_url:
-        description: 'URL hoặc Tên Wifi cần test'
+        description: 'URL hoặc Tên Wifi'
         required: true
         type: string
-
 jobs:
   k6-load-test-run:
     name: Run k6 Load Test
     runs-on: ubuntu-latest
-    
-    # Một lần chạy chỉ mất khoảng 2.5 phút, nên 5 phút là đủ an toàn
     timeout-minutes: 600
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Run k6 test
-        # Quay lại phiên bản action cũ v0.3.1 như bạn muốn
         uses: grafana/k6-action@v0.3.1
         with:
-          # Đường dẫn tới file script, chỉ cần tên file
           filename: test.js
-          # Bỏ đi 'k6_version' vì phiên bản này không hỗ trợ
         env:
-          # Truyền URL từ input vào biến môi trường cho k6
           K6_TARGET_URL: ${{ inputs.target_url }}
