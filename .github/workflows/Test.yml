@@ -17,25 +17,21 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+      # Bước này vẫn rất quan trọng để tải code về.
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # =========================================================
-      # <<< BƯỚC GỠ LỖI QUAN TRỌNG >>>
-      # In ra cấu trúc thư mục để xem file test.js có ở đúng chỗ không.
+      # (Bạn có thể xóa bước gỡ lỗi "List files" đi nếu muốn cho gọn)
       - name: List files in the workspace
-        run: |
-          echo "Current directory is: $(pwd)"
-          echo "---"
-          echo "Listing all files and directories recursively:"
-          ls -R
-          echo "---"
-      # =========================================================
+        run: ls -R
 
       - name: Run k6 test
         uses: grafana/k6-action@v0.3.1
         with:
-          # Vẫn giữ nguyên tên file này
-          filename: test.js
+          # <<< THAY ĐỔI QUAN TRỌNG NHẤT >>>
+          # Cung cấp đường dẫn tuyệt đối đến file script.
+          # ${{ github.workspace }} là biến môi trường đặc biệt của GitHub,
+          # nó luôn trỏ đến thư mục gốc của repo đã được checkout.
+          filename: ${{ github.workspace }}/test.js
         env:
           TARGET_URL: ${{ inputs.target_url }}
