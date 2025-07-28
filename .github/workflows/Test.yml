@@ -13,22 +13,24 @@ on:
 jobs:
   k6-load-test-run:
     name: Run k6 Load Test
-    timeout-minutes: 3
+    # SỬA LẠI: Timeout phải lớn hơn tổng thời gian test của k6.
+    # Tăng lên 10 phút để đảm bảo an toàn.
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     
     steps:
-      # BƯỚC 1: Tải code về. Đây là bước bắt buộc và không thể thiếu.
-      # Nó đảm bảo file `test.js` có mặt trên máy ảo runner.
+      # BƯỚC 1: Tải code về (bắt buộc).
       - name: Checkout repository
         uses: actions/checkout@v4
 
       # BƯỚC 2: Chạy k6.
-      # Chúng ta sẽ sử dụng cách đơn giản nhất, không có đường dẫn phức tạp.
-      # Action này được thiết kế để tự tìm file trong thư mục đã checkout.
       - name: Run k6 test
         uses: grafana/k6-action@v0.3.1
         with:
-          # Chỉ cần tên file. KHÔNG cần đường dẫn tuyệt đối.
-          filename: test.js
+          # SỬA LẠI: Chỉ cần tên file vì nó nằm ở thư mục gốc.
+          # Không có đuôi .js theo yêu cầu của bạn.
+          filename: test
         env:
-          TARGET_URL: ${{ inputs.target_url }}
+          # Truyền URL vào biến môi trường để script k6 sử dụng.
+          K6_TARGET_URL: ${{ inputs.target_url }}
+
