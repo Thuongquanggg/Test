@@ -45,5 +45,5 @@ export default function () {
 
   // Một khoảng nghỉ nhỏ giữa các yêu cầu của cùng một người dùng ảo.
   // Điều này giúp bài test bền vững hơn.
-  sleep(1); 
+  sleep(0); 
 }
