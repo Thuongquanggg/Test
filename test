@@ -1,41 +1,21 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-
-// --- SỬA LẠI: CẤU HÌNH BÀI TEST HỢP LÝ ---
 export const options = {
-  // Đặt lại thời gian thực tế, khớp với timeout 10 phút của workflow.
-  stages: [
-    // Giai đoạn 1: Tăng dần lên 200 người dùng ảo trong 1 phút
-    { duration: '1m', target: 200 },
-    
-    // Giai đoạn 2: Duy trì 200 người dùng ảo trong 3 phút
-    { duration: '3m', target: 200 },
-    
-    // Giai đoạn 3: Giảm tải về 0 trong 1 phút
-    { duration: '1m', target: 0 },
-  ],
-  
-  thresholds: {
-    'http_req_failed': ['rate<0.1'], 
-    'http_req_duration': ['p(95)<5000'],
-  },
+stages: [
+{ duration: '2s', target: 1000 },
+{ duration: '2m18s', target: 1000 },
+{ duration: '10s', target: 0 },
+],
+thresholds: {
+'http_req_failed': ['rate<0.1'],
+'http_req_duration': ['p(95)<5000'],
+},
 };
-
-// --- SỬA LẠI: LOGIC CHÍNH CỦA BÀI TEST ---
-
-// Lấy URL từ biến môi trường mà workflow đã truyền vào.
-// Đây là cách làm đúng để workflow có thể tái sử dụng.
 const TARGET_URL = __ENV.K6_TARGET_URL || 'https://test.k6.io';
-
 export default function () {
-  const res = http.get(TARGET_URL, {
-    tags: { name: 'HomepageAttack' },
-  });
-
-  check(res, {
-    'Trang chủ phản hồi thành công (status 200)': (r) => r.status === 200,
-  });
-
-  // Dừng 1 giây giữa các request để mô phỏng người dùng thật và giảm tải.
-  sleep(1); 
+const res = http.get(TARGET_URL);
+check(res, {
+'Trang chủ phản hồi thành công (status 200)': (r) => r.status === 200,
+});
+sleep(0);
 }
