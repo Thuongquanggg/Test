@@ -14,7 +14,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
       - name: '3. Cài đặt các dependencies (bao gồm Playwright)'
         run: npm install
       - name: '4. Cài đặt trình duyệt cho Playwright'
