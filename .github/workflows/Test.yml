@@ -8,6 +8,7 @@ run-name: Testing ${{ github.event.inputs.target_url }}
 
 on:
   # Cho phép chạy workflow này thủ công từ giao diện GitHub
+  # HOẶC được gọi bởi một workflow khác (ví dụ: Scheduler.yml)
   workflow_dispatch:
     inputs:
       target_url:
@@ -19,13 +20,14 @@ jobs:
   k6-load-test-run:
     name: Run k6 Load Test
     
-    # <<< THÊM DÒNG NÀY ĐỂ GIỚI HẠN THỜI GIAN CHẠY >>>
+    # <<< GIỚI HẠN THỜI GIAN CHẠY CỦA JOB NÀY LÀ 3 PHÚT >>>
+    # Nếu job chạy quá 3 phút, GitHub sẽ tự động dừng nó.
     timeout-minutes: 3
     
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4 # Nên cập nhật lên v4
+        uses: actions/checkout@v4
 
       - name: Run k6 test
         uses: grafana/k6-action@v0.3.1
@@ -33,4 +35,5 @@ jobs:
           # Đảm bảo tên file này khớp với tên file script của bạn (ví dụ: test.js)
           filename: test.js
         env:
+          # Nhận URL từ input của workflow_dispatch
           TARGET_URL: ${{ github.event.inputs.target_url }}
