@@ -40,7 +40,7 @@ jobs:
       # Bước 3: Cài đặt các thư viện cần thiết từ package.json
       - name: '3. Cài đặt các dependencies (bao gồm Playwright)'
         # 'npm ci' nhanh và an toàn hơn 'npm install' cho môi trường CI/CD
-        run: npm ci
+        run: npm install
 
       # Bước 4: Cài đặt các trình duyệt cho Playwright
       # Đây là bước bắt buộc vì máy ảo mặc định không có sẵn trình duyệt của Playwright
