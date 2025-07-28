@@ -21,13 +21,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run k6 test
-        # THAY ĐỔI QUAN TRỌNG:
-        # Thêm 'working-directory' để đảm bảo action chạy từ đúng thư mục gốc của repo.
-        working-directory: ${{ github.workspace }}
         uses: grafana/k6-action@v0.3.1
         with:
-          # Quay trở lại cách dùng đơn giản nhất: chỉ cần tên file.
-          # Vì đã có working-directory, action sẽ tìm thấy file này.
-          filename: test.js
+          # Đường dẫn này là chính xác
+          filename: /github/workspace/test.js
         env:
           TARGET_URL: ${{ inputs.target_url }}
