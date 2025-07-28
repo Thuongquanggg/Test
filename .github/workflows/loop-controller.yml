@@ -8,24 +8,24 @@ on:
   workflow_dispatch:
 
 jobs:
-  trigger-load-tests:
-    name: Trigger 10 k6 Test Runs
-    runs-on: ubuntu-latest
-
+  # Tên job này không quan trọng, có thể đặt là gì cũng được
+  call-reusable-k6-test:
+    # THAY ĐỔI LỚN NHẤT:
+    # 'uses' được đặt ở đây, cấp độ JOB, để gọi một Reusable Workflow.
+    # Nó thay thế hoàn toàn cho 'runs-on' và 'steps'.
+    uses: ./.github/workflows/Test.yml
+    
+    # Dùng strategy để gọi job này 10 lần
     strategy:
       fail-fast: false
       matrix:
+        # Chúng ta chỉ cần một biến để lặp 10 lần, không cần dùng đến nó
         run_number: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-    steps:
-      # BƯỚC 1: TẢI CODE VỀ RUNNER
-      # Đây là bước cực kỳ quan trọng để runner có thể tìm thấy file Test.yml ở local.
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    # Dùng 'with' để truyền input cho workflow được gọi
+    with:
+      target_url: 'https://certapple.com'
+      
+    # Best practice: Cho phép workflow được gọi sử dụng secrets của workflow này
+    secrets: inherit
 
-      # BƯỚC 2: GỌI REUSABLE WORKFLOW
-      # Bây giờ runner đã có code, nó sẽ tìm thấy và gọi được file Test.yml
-      - name: Run k6 Load Test Workflow (Run #${{ matrix.run_number }})
-        uses: ./.github/workflows/Test.yml
-        with:
-          target_url: 'https://certapple.com'
