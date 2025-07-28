@@ -2,7 +2,6 @@
 
 name: '🔄 Looping Controller for k6 Test'
 
-# Cho phép chạy workflow này thủ công từ tab Actions
 on:
   workflow_dispatch:
 
@@ -10,25 +9,32 @@ jobs:
   controller-job:
     runs-on: ubuntu-latest
     
-    # QUAN TRỌNG: Cấp quyền để workflow này có thể kích hoạt workflow khác
     permissions:
       actions: write
 
     steps:
+      # <<< BƯỚC 1: THÊM BƯỚC NÀY ĐỂ CẬP NHẬT GITHUB CLI >>>
+      - name: Update GitHub CLI to the latest version
+        run: |
+          # Các máy ảo Ubuntu của GitHub sử dụng 'apt' để quản lý gói
+          sudo apt-get update
+          sudo apt-get install gh -y
+        # Ghi chú: Cần `sudo` vì chúng ta đang cài đặt/cập nhật gói hệ thống.
+
+      # <<< BƯỚC 2: CHẠY VÒNG LẶP VỚI `gh` ĐÃ ĐƯỢC CẬP NHẬT >>>
       - name: 'Loop: Call k6 Test -> Wait -> Sleep 30s'
         env:
-          # Cung cấp token để GitHub CLI có thể xác thực
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # (Tùy chọn) Kiểm tra phiên bản gh để xác nhận đã cập nhật thành công
+          echo "GitHub CLI version: $(gh --version)"
+
           echo "Bắt đầu vòng lặp vô tận, test URL: https://certapple.com"
           while true; do
             echo ">>> [$(date)] Bắt đầu gọi 'Test.yml'."
             
-            # Lệnh này sẽ:
-            # 1. Kích hoạt 'Test.yml'
-            # 2. --ref ${{ github.ref_name }}: Chạy trên cùng một nhánh
-            # 3. -f target_url=...: Truyền input 'target_url' vào workflow 'Test.yml'
-            # 4. --wait: Chờ cho đến khi 'Test.yml' chạy xong (hoặc bị timeout sau 3 phút)
+            # Lệnh này bây giờ sẽ hoạt động vì `gh` đã được cập nhật
+            # Đảm bảo bạn sử dụng hai dấu gạch ngang "--" chứ không phải một dấu gạch dài "–"
             gh workflow run Test.yml --ref ${{ github.ref_name }} -f target_url=https://certapple.com --wait
             
             echo ">>> [$(date)] 'Test.yml' đã chạy xong. Bắt đầu nghỉ 30 giây."
