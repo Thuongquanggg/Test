@@ -8,7 +8,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Tên job không thay đổi
   trigger-load-tests:
     name: Trigger 10 k6 Test Runs
     runs-on: ubuntu-latest
@@ -18,16 +17,15 @@ jobs:
       matrix:
         run_number: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-    # THAY ĐỔI QUAN TRỌNG:
-    # Không cần cấp quyền 'write' nữa vì 'workflow_call' là một cơ chế an toàn hơn.
-    # GitHub sẽ tự động xử lý quyền truy cập.
-
     steps:
-      # THAY ĐỔI QUAN TRỌNG:
-      # Thay vì dùng 'gh' để trigger, chúng ta dùng 'uses' để gọi trực tiếp.
-      # Cách này đáng tin cậy hơn và tự động xử lý việc checkout code.
+      # BƯỚC 1: TẢI CODE VỀ RUNNER
+      # Đây là bước cực kỳ quan trọng để runner có thể tìm thấy file Test.yml ở local.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # BƯỚC 2: GỌI REUSABLE WORKFLOW
+      # Bây giờ runner đã có code, nó sẽ tìm thấy và gọi được file Test.yml
       - name: Run k6 Load Test Workflow (Run #${{ matrix.run_number }})
         uses: ./.github/workflows/Test.yml
         with:
-          # Truyền giá trị cho input 'target_url' đã định nghĩa trong Test.yml
           target_url: 'https://certapple.com'
