@@ -10,33 +10,51 @@ jobs:
     runs-on: ubuntu-latest
     
     permissions:
+      # Vẫn cần quyền 'actions: write' để kích hoạt và xem các workflow khác
       actions: write
 
     steps:
-      # <<< BƯỚC 1: THÊM BƯỚC NÀY ĐỂ CẬP NHẬT GITHUB CLI >>>
-      - name: Update GitHub CLI to the latest version
-        run: |
-          # Các máy ảo Ubuntu của GitHub sử dụng 'apt' để quản lý gói
-          sudo apt-get update
-          sudo apt-get install gh -y
-        # Ghi chú: Cần `sudo` vì chúng ta đang cài đặt/cập nhật gói hệ thống.
-
-      # <<< BƯỚC 2: CHẠY VÒNG LẶP VỚI `gh` ĐÃ ĐƯỢC CẬP NHẬT >>>
+      # Chúng ta không cần cập nhật gh nữa vì lỗi không phải do phiên bản cũ.
+      # Tuy nhiên, giữ lại bước này cũng không hại gì.
       - name: 'Loop: Call k6 Test -> Wait -> Sleep 30s'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # (Tùy chọn) Kiểm tra phiên bản gh để xác nhận đã cập nhật thành công
-          echo "GitHub CLI version: $(gh --version)"
-
           echo "Bắt đầu vòng lặp vô tận, test URL: https://certapple.com"
+          
           while true; do
             echo ">>> [$(date)] Bắt đầu gọi 'Test.yml'."
             
-            # Lệnh này bây giờ sẽ hoạt động vì `gh` đã được cập nhật
-            # Đảm bảo bạn sử dụng hai dấu gạch ngang "--" chứ không phải một dấu gạch dài "–"
-            gh workflow run Test.yml --ref ${{ github.ref_name }} -f target_url=https://certapple.com --wait
+            # BƯỚC 1: Kích hoạt workflow và lấy URL của lần chạy mới.
+            # Lệnh này sẽ in ra URL của lần chạy, ví dụ: https://github.com/user/repo/actions/runs/12345
+            RUN_URL=$(gh workflow run Test.yml --ref ${{ github.ref_name }} -f target_url=https://certapple.com)
             
-            echo ">>> [$(date)] 'Test.yml' đã chạy xong. Bắt đầu nghỉ 30 giây."
+            # Kiểm tra xem lệnh có chạy thành công không
+            if [ -z "$RUN_URL" ]; then
+              echo "Lỗi: Không thể kích hoạt workflow 'Test.yml'. Dừng vòng lặp."
+              exit 1
+            fi
+            
+            echo "Workflow đã được kích hoạt. URL của lần chạy: $RUN_URL"
+            
+            # BƯỚC 2: Trích xuất Run ID từ URL.
+            # Run ID là phần số ở cuối cùng của URL.
+            RUN_ID=$(basename "$RUN_URL")
+            echo "Run ID là: $RUN_ID. Bắt đầu chờ..."
+            
+            # BƯỚC 3: Dùng 'gh run watch' để chờ cho đến khi lần chạy hoàn thành.
+            # Lệnh này sẽ tự động dừng khi workflow con kết thúc (thành công, thất bại, hoặc bị hủy).
+            # Cờ --exit-status sẽ làm cho lệnh này trả về mã lỗi nếu workflow con thất bại.
+            gh run watch "$RUN_ID" --exit-status
+            
+            # Kiểm tra kết quả của lần chạy con
+            RUN_EXIT_CODE=$?
+            if [ $RUN_EXIT_CODE -eq 0 ]; then
+              echo ">>> [$(date)] 'Test.yml' đã chạy xong với trạng thái THÀNH CÔNG."
+            else
+              echo ">>> [$(date)] 'Test.yml' đã chạy xong với trạng thái THẤT BẠI hoặc BỊ HỦY (Mã lỗi: $RUN_EXIT_CODE)."
+            fi
+
+            echo "Bắt đầu nghỉ 30 giây."
             sleep 30
           done
