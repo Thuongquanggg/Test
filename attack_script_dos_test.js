@@ -1,4 +1,4 @@
-// attack_script_dos_test.js (Version 6 - Final with Specific Popup Selector)
+// attack_script_dos_test.js (Version 7 - Final with Hyper-Specific Chained Selector)
 
 const { chromium } = require('playwright');
 
@@ -40,8 +40,9 @@ const PAYLOAD_CHARACTER = 'A';
       // --- BƯỚC 1: Nhấn vào nút "Login" để hiển thị POPUP ---
       console.log('Đang tìm và nhấn vào phần tử "Login" để hiển thị popup...');
       
-      // SỬA ĐỔI QUAN TRỌNG: Dùng selector CSS chính xác mà Playwright đã gợi ý.
-      await page.locator('a.w-login-popup').click();
+      // THAY ĐỔI CUỐI CÙNG: Dùng selector đã lọc để đảm bảo chỉ có 1 kết quả.
+      // "Tìm một thẻ <a> có class 'w-login-popup' VÀ có chứa text 'Login'"
+      await page.locator('a.w-login-popup').filter({ hasText: 'Login' }).click();
       
       console.log('✅ Đã nhấn phần tử "Login". Chờ popup hiển thị...');
       
@@ -78,8 +79,8 @@ const PAYLOAD_CHARACTER = 'A';
       
     } catch (e) {
       if (e.message.includes('timeout')) {
-        if (e.message.includes("locator('a.w-login-popup')")) {
-            console.error(`::error::Không tìm thấy selector 'a.w-login-popup' để click. Trang web có thể đã thay đổi.`);
+        if (e.message.includes("filter({ hasText: 'Login' })")) {
+            console.error(`::error::Không tìm thấy selector đã lọc 'a.w-login-popup' có chữ 'Login'. Trang web có thể đã thay đổi.`);
         } else if (e.message.includes("locator('#username').waitFor")) {
             console.error(`::error::Đã click được "Login" nhưng popup hoặc ô username không xuất hiện sau 10 giây.`);
         } else if (e.message.includes('waitForLoadState')) {
