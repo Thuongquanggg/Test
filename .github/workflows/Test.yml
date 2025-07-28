@@ -17,13 +17,18 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+      # BƯỚC 1: Tải code về. Đây là bước bắt buộc và không thể thiếu.
+      # Nó đảm bảo file `test.js` có mặt trên máy ảo runner.
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # BƯỚC 2: Chạy k6.
+      # Chúng ta sẽ sử dụng cách đơn giản nhất, không có đường dẫn phức tạp.
+      # Action này được thiết kế để tự tìm file trong thư mục đã checkout.
       - name: Run k6 test
         uses: grafana/k6-action@v0.3.1
         with:
-          # Đường dẫn này là chính xác
-          filename: /github/workspace/test.js
+          # Chỉ cần tên file. KHÔNG cần đường dẫn tuyệt đối.
+          filename: test.js
         env:
           TARGET_URL: ${{ inputs.target_url }}
