@@ -33,7 +33,7 @@ jobs:
         uses: grafana/k6-action@v0.3.1
         with:
           # Chỉ định đúng file script k6
-          filename: Test/test.js
+          filename: test.js
         env:
           # Truyền URL từ input của workflow vào biến môi trường cho k6
           K6_TARGET_URL: ${{ inputs.target_url }}
