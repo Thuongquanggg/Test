@@ -1,8 +1,14 @@
 {
   "name": "security-test-suite",
   "version": "1.0.0",
-  "description": "Playwright script to test website security",
-  "dependencies": {
-    "playwright": "^1.44.1"
+  "description": "A script to test web application security.",
+  "main": "attack_script_dos_test.js",
+  "scripts": {
+    "test": "node attack_script_dos_test.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "playwright": "^1.44.0"
   }
 }
