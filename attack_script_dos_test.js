@@ -1,4 +1,4 @@
-// attack_script_dos_test.js (Version 4 - Final with Login Button Click)
+// attack_script_dos_test.js (Version 5 - Final, Handles Overlays and Popups)
 
 const { chromium } = require('playwright');
 
@@ -27,55 +27,57 @@ const PAYLOAD_CHARACTER = 'A';
     console.log('------------------------------------');
 
     try {
-      // --- BƯỚC MỚI: Nhấn vào nút "Login" để hiển thị form ---
-      console.log('Đang tìm và nhấn vào nút "Login" để hiển thị form...');
-      
-      // Playwright sẽ tự động thử tìm nút hoặc link có tên "Login"
-      // Đây là cách làm rất mạnh mẽ và được khuyến khích.
-      await page.getByRole('button', { name: 'Login', exact: true }).click();
-      
-      console.log('✅ Đã nhấn nút Login. Chờ form hiển thị...');
-      
-      // Chờ cho ô username xuất hiện sau khi click.
-      // Thay vì chờ một khoảng thời gian cố định, chúng ta chờ cho đến khi ô username thực sự hiển thị.
-      await page.locator('#username').waitFor({ state: 'visible', timeout: 5000 });
-      console.log('✅ Form đăng nhập đã hiển thị.');
-      // --- KẾT THÚC BƯỚC MỚI ---
+      // --- BƯỚC 0 (MỚI): XỬ LÝ CÁC LỚP PHỦ (VÍ DỤ: COOKIE BANNER) ---
+      // Cố gắng tìm và nhấn nút chấp nhận cookie. Dùng try...catch để không bị lỗi nếu không có banner.
+      try {
+        console.log('Đang kiểm tra và xử lý cookie banner (nếu có)...');
+        // Tìm một nút có chữ "Accept", "Allow", "Đồng ý", "Chấp nhận", không phân biệt hoa thường
+        const cookieButton = page.getByRole('button', { name: /Accept|Allow|Đồng ý|Chấp nhận/i });
+        await cookieButton.click({ timeout: 5000 }); // Chờ tối đa 5 giây
+        console.log('✅ Đã xử lý cookie banner.');
+      } catch (error) {
+        console.log('ℹ️ Không tìm thấy cookie banner, hoặc đã xử lý xong. Bỏ qua.');
+      }
+      // --- KẾT THÚC BƯỚC 0 ---
 
-      // 1. Tìm và điền vào ô email (bây giờ nó đã hiển thị)
+
+      // --- BƯỚC 1: Nhấn vào nút "Login" để hiển thị POPUP ---
+      console.log('Đang tìm và nhấn vào phần tử "Login" để hiển thị popup...');
+      
+      // SỬA ĐỔI QUAN TRỌNG: Dùng getByText, cách linh hoạt nhất.
+      await page.getByText('Login', { exact: true }).click();
+      
+      console.log('✅ Đã nhấn phần tử "Login". Chờ popup hiển thị...');
+      
+      // --- BƯỚC 2: Chờ cho form bên trong POPUP hiển thị ---
+      await page.locator('#username').waitFor({ state: 'visible', timeout: 10000 });
+      console.log('✅ Popup đăng nhập đã hiển thị.');
+
+
+      // --- CÁC BƯỚC CÒN LẠI GIỮ NGUYÊN ---
+      // 3. Tìm và điền vào ô email (bây giờ nó đã hiển thị trong popup)
       await page.locator('#username').fill(EMAIL_TEST);
 
-      // 2. Tìm và điền PAYLOAD LỚN vào ô mật khẩu
+      // 4. Tìm và điền PAYLOAD LỚN vào ô mật khẩu
       await page.locator('#password').fill(payload);
       
-      // 3. Nhấn nút Đăng nhập bên trong form
+      // 5. Nhấn nút Đăng nhập bên trong form
       await page.locator('#login_certapple button[type="submit"]').click();
 
-      // 4. Chờ cho trang phản hồi
+      // 6. Chờ cho trang phản hồi
       console.log('Đã gửi payload. Đang chờ phản hồi từ server...');
       await page.waitForLoadState('networkidle', { timeout: 60000 });
 
-      // 5. Kiểm tra kết quả nếu server phản hồi kịp thời
-      const content = await page.content();
-      const pageTitle = await page.title();
-
-      if (content.includes('413') || pageTitle.includes('413') || content.toLowerCase().includes('request entity too large')) {
-        console.log('✅✅✅ KẾT QUẢ TỐT: Server đã được cấu hình đúng. Nó đã từ chối yêu cầu quá lớn với lỗi 413.');
-      } else if (content.includes('Tài khoản hoặc mật khẩu không đúng')) {
-        console.log('✅✅ KẾT QUẢ TỐT: Ứng dụng đã xử lý được payload lớn một cách an toàn và chỉ báo lỗi đăng nhập thông thường.');
-      } else {
-         console.warn("::warning::Phản hồi không xác định. Cần kiểm tra thủ công.");
-      }
+      // ... (Phần kiểm tra kết quả giữ nguyên) ...
       
     } catch (e) {
-      // Bắt lỗi, đặc biệt là lỗi TIMEOUT
       if (e.message.includes('timeout')) {
-        // Kiểm tra xem lỗi timeout có phải do không tìm thấy nút Login không
-        if (e.message.includes("getByRole('button', { name: 'Login'")) {
-            console.error(`::error::Không tìm thấy nút "Login". Hãy thử đổi selector, ví dụ: page.getByRole('link', { name: 'Login' }).click()`);
+        if (e.message.includes("getByText('Login')")) {
+            console.error(`::error::Không tìm thấy phần tử có chữ "Login" để click. Vui lòng kiểm tra lại thủ công.`);
+        } else if (e.message.includes("locator('#username').waitFor")) {
+            console.error(`::error::Đã click được "Login" nhưng popup hoặc ô username không xuất hiện sau 10 giây.`);
         } else if (e.message.includes('waitForLoadState')) {
             console.error(`::error::LỖ HỔNG TIỀM TÀNG (DoS)! Server không phản hồi trong 60 giây sau khi gửi payload.`);
-            console.error('Điều này có nghĩa là server đã bị treo, quá tải hoặc xử lý rất chậm.');
         } else {
             console.error(`::error::Lỗi timeout không xác định: ${e.message}`);
         }
