@@ -1,15 +1,9 @@
-
 # .github/workflows/Test.yml
 
-# Tên của toàn bộ workflow
 name: Reusable k6 Load Test
 
-# THAY ĐỔI QUAN TRỌNG:
-# Thay vì 'on: workflow_dispatch', chúng ta dùng 'on: workflow_call'
-# Điều này biến nó thành một workflow có thể được gọi bởi workflow khác.
 on:
   workflow_call:
-    # Định nghĩa các input mà workflow này chấp nhận khi được gọi
     inputs:
       target_url:
         description: 'URL của trang web cần test'
@@ -23,17 +17,25 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      # Bước này rất quan trọng để đảm bảo mã nguồn (bao gồm file test.js)
-      # được tải về runner trước khi chạy k6.
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # =========================================================
+      # <<< BƯỚC GỠ LỖI QUAN TRỌNG >>>
+      # In ra cấu trúc thư mục để xem file test.js có ở đúng chỗ không.
+      - name: List files in the workspace
+        run: |
+          echo "Current directory is: $(pwd)"
+          echo "---"
+          echo "Listing all files and directories recursively:"
+          ls -R
+          echo "---"
+      # =========================================================
 
       - name: Run k6 test
         uses: grafana/k6-action@v0.3.1
         with:
-          # Tên file script của bạn
+          # Vẫn giữ nguyên tên file này
           filename: test.js
         env:
-          # THAY ĐỔI QUAN TRỌNG:
-          # Truy cập input thông qua 'inputs' thay vì 'github.event.inputs'
           TARGET_URL: ${{ inputs.target_url }}
