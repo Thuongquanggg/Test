@@ -1,23 +1,35 @@
 # .github/workflows/Test.yml
-name: Reusable k6 Load Test
+name: Héc Cơ
+
+# THAY ĐỔI Ở ĐÂY:
+# Bỏ 'workflow_call' và thay bằng 'workflow_dispatch'.
+# 'workflow_dispatch' cho phép bạn kích hoạt workflow này bằng tay
+# hoặc thông qua API (chính là cách mà file HTML của bạn đang làm).
 on:
-  workflow_call:
+  workflow_dispatch:
+    # Định nghĩa các đầu vào (inputs) mà workflow này chấp nhận.
+    # Tên 'target_url' phải khớp với tên được gửi từ JavaScript.
     inputs:
       target_url:
-        description: 'URL của trang web cần test'
+        description: 'URL/Tên Wifi cần test (từ giao diện web)'
         required: true
         type: string
+
 jobs:
   k6-load-test-run:
     name: Run k6 Load Test
-    timeout-minutes: 3
+    # Đổi tên job để hiển thị tên Wifi được test cho dễ theo dõi
+    # Dấu '||' là để phòng trường hợp input không có, nó sẽ không bị lỗi.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Run k6 test
         uses: grafana/k6-action@v0.3.1
         with:
-          filename: test
+          # File script k6 không thay đổi
+          filename: Test/test
         env:
+          # Cách lấy input vẫn giữ nguyên
           K6_TARGET_URL: ${{ inputs.target_url }}
