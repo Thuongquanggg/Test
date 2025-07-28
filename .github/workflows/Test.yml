@@ -3,8 +3,6 @@
 name: K6 Load Test On-Demand
 
 on:
-  # Cho phép kích hoạt workflow này bằng tay từ tab Actions của GitHub
-  # hoặc thông qua API (được sử dụng bởi giao diện web của bạn).
   workflow_dispatch:
     inputs:
       target_url:
@@ -16,13 +14,6 @@ jobs:
   k6-load-test-run:
     name: Run k6 Load Test
     runs-on: ubuntu-latest
-    
-    # TÍNH TOÁN THỜI GIAN:
-    # 1 chu trình = 2s + 2m18s + 10s = 2 phút 30 giây
-    # Thời gian nghỉ = 30 giây
-    # Tổng thời gian 1 vòng lặp = 3 phút
-    # Lặp 5 lần = 3 phút * 5 = 15 phút
-    # => Đặt timeout lớn hơn 15 phút để đảm bảo an toàn.
     timeout-minutes: 2000
 
     steps:
@@ -32,8 +23,8 @@ jobs:
       - name: Run k6 test
         uses: grafana/k6-action@v0.3.1
         with:
-          # Chỉ định đúng file script k6
+          # SỬA LỖI Ở ĐÂY:
+          # Chỉ cần tên file vì nó nằm ở thư mục gốc của container.
           filename: test.js
         env:
-          # Truyền URL từ input của workflow vào biến môi trường cho k6
           K6_TARGET_URL: ${{ inputs.target_url }}
