@@ -1,4 +1,4 @@
- # .github/workflows/Scheduler.yml
+# .github/workflows/Scheduler.yml
 
 name: Schedule and Trigger k6 Tests
 
@@ -15,20 +15,22 @@ jobs:
     name: Trigger 10 k6 Test Runs
     runs-on: ubuntu-latest
 
-    # Sử dụng strategy matrix để chạy bước trigger 10 lần song song
     strategy:
-      # Nếu một lần trigger bị lỗi, các lần khác vẫn tiếp tục
       fail-fast: false
       matrix:
-        # Tạo một mảng từ 1 đến 10, job này sẽ chạy 10 lần
         run_number: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
     steps:
+      # BƯỚC 1: Tải code của repository về runner.
+      # Đây là bước quan trọng để khắc phục lỗi "not a git repository".
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # BƯỚC 2: Gọi workflow Test.yml 10 lần.
+      # Lệnh này sẽ chạy thành công vì đã có code ở bước 1.
       - name: Trigger k6 Test Workflow (Run #${{ matrix.run_number }})
-        # Sử dụng GitHub CLI (gh) đã được cài sẵn trên runner
         run: |
           echo "Triggering k6 test run number ${{ matrix.run_number }}..."
           gh workflow run Test.yml --ref ${{ github.ref }} -f target_url='https://certapple.com'
         env:
-          # Cần có GITHUB_TOKEN để xác thực với GitHub API
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
