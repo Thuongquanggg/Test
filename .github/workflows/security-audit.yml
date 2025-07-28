@@ -1,5 +1,4 @@
 # .github/workflows/security-test.yml
-
 # Tên của quy trình làm việc (workflow), sẽ hiển thị trên tab Actions của GitHub
 name: 'Kiểm tra Bảo mật (DoS/Payload Lớn)'
 
