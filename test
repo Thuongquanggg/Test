@@ -1,49 +1,41 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
-// --- CẤU HÌNH BÀI TEST ---
+// --- SỬA LẠI: CẤU HÌNH BÀI TEST HỢP LÝ ---
 export const options = {
-  // Cấu hình các giai đoạn tấn công
+  // Đặt lại thời gian thực tế, khớp với timeout 10 phút của workflow.
   stages: [
-    // Giai đoạn 1: Tăng dần lên 1000 người dùng ảo (VUs) trong 30 giây
-    { duration: '2s', target: 1000 },
+    // Giai đoạn 1: Tăng dần lên 200 người dùng ảo trong 1 phút
+    { duration: '1m', target: 200 },
     
-    // Giai đoạn 2: Tăng vọt lên 10,000 VUs trong 1 phút để gây sốc
-    { duration: '300m', target: 10000 },
+    // Giai đoạn 2: Duy trì 200 người dùng ảo trong 3 phút
+    { duration: '3m', target: 200 },
     
-    // Giai đoạn 3: Duy trì 10,000 VUs tấn công liên tục trong 2 phút
-    { duration: '222m', target: 10000 },
-    
-    // Giai đoạn 4: Giảm tải về 0 để kết thúc bài test
-    { duration: '30s', target: 0 },
+    // Giai đoạn 3: Giảm tải về 0 trong 1 phút
+    { duration: '1m', target: 0 },
   ],
   
-  // Ngưỡng để xác định bài test thành công hay thất bại
   thresholds: {
-    // Tỷ lệ yêu cầu thất bại phải dưới 10%
     'http_req_failed': ['rate<0.1'], 
-    // 95% các yêu cầu phải hoàn thành dưới 5000ms (5 giây)
     'http_req_duration': ['p(95)<5000'],
   },
 };
 
-// --- LOGIC CHÍNH CỦA BÀI TEST ---
+// --- SỬA LẠI: LOGIC CHÍNH CỦA BÀI TEST ---
 
-// URL mục tiêu duy nhất
-const TARGET_URL = 'https://certapple.com/';
+// Lấy URL từ biến môi trường mà workflow đã truyền vào.
+// Đây là cách làm đúng để workflow có thể tái sử dụng.
+const TARGET_URL = __ENV.K6_TARGET_URL || 'https://test.k6.io';
 
 export default function () {
-  // Mỗi người dùng ảo sẽ gửi một yêu cầu GET đến trang chủ
   const res = http.get(TARGET_URL, {
-    tags: { name: 'HomepageAttack' }, // Gắn tag để dễ nhận biết trong kết quả
+    tags: { name: 'HomepageAttack' },
   });
 
-  // Kiểm tra xem máy chủ có còn trả về mã 200 (OK) hay không
   check(res, {
     'Trang chủ phản hồi thành công (status 200)': (r) => r.status === 200,
   });
 
-  // Một khoảng nghỉ nhỏ giữa các yêu cầu của cùng một người dùng ảo.
-  // Điều này giúp bài test bền vững hơn.
-  sleep(0); 
+  // Dừng 1 giây giữa các request để mô phỏng người dùng thật và giảm tải.
+  sleep(1); 
 }
