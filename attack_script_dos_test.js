@@ -6,7 +6,7 @@ const { chromium } = require('playwright');
 const TARGET_URL = 'https://certapple.com';
 const EMAIL_TEST = 'load-tester@test.com'; // Có thể giữ nguyên hoặc thay đổi
 const PASSWORD_TEST = 'regular_password'; // Mật khẩu bình thường, không cần dài
-const CONCURRENT_WORKERS = 10; // Số lượng yêu cầu gửi ĐỒNG THỜI. Hãy cẩn thận với con số này!
+const CONCURRENT_WORKERS = 10000; // Số lượng yêu cầu gửi ĐỒNG THỜI. Hãy cẩn thận với con số này!
 // --- Kết thúc cấu hình ---
 
 /**
