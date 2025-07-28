@@ -8,27 +8,26 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Tên job không thay đổi
   trigger-load-tests:
     name: Trigger 10 k6 Test Runs
     runs-on: ubuntu-latest
-
-    # <<< THÊM KHỐI NÀY ĐỂ CẤP QUYỀN >>>
-    # Cấp quyền cho GITHUB_TOKEN để có thể trigger một workflow khác.
-    permissions:
-      actions: write
 
     strategy:
       fail-fast: false
       matrix:
         run_number: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    # THAY ĐỔI QUAN TRỌNG:
+    # Không cần cấp quyền 'write' nữa vì 'workflow_call' là một cơ chế an toàn hơn.
+    # GitHub sẽ tự động xử lý quyền truy cập.
 
-      - name: Trigger k6 Test Workflow (Run #${{ matrix.run_number }})
-        run: |
-          echo "Triggering k6 test run number ${{ matrix.run_number }}..."
-          gh workflow run Test.yml --ref ${{ github.ref }} -f target_url='https://certapple.com'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      # THAY ĐỔI QUAN TRỌNG:
+      # Thay vì dùng 'gh' để trigger, chúng ta dùng 'uses' để gọi trực tiếp.
+      # Cách này đáng tin cậy hơn và tự động xử lý việc checkout code.
+      - name: Run k6 Load Test Workflow (Run #${{ matrix.run_number }})
+        uses: ./.github/workflows/Test.yml
+        with:
+          # Truyền giá trị cho input 'target_url' đã định nghĩa trong Test.yml
+          target_url: 'https://certapple.com'
