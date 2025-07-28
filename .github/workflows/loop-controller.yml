@@ -1,0 +1,36 @@
+# .github/workflows/loop-controller.yml
+
+name: '🔄 Looping Controller for k6 Test'
+
+# Cho phép chạy workflow này thủ công từ tab Actions
+on:
+  workflow_dispatch:
+
+jobs:
+  controller-job:
+    runs-on: ubuntu-latest
+    
+    # QUAN TRỌNG: Cấp quyền để workflow này có thể kích hoạt workflow khác
+    permissions:
+      actions: write
+
+    steps:
+      - name: 'Loop: Call k6 Test -> Wait -> Sleep 30s'
+        env:
+          # Cung cấp token để GitHub CLI có thể xác thực
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Bắt đầu vòng lặp vô tận, test URL: https://certapple.com"
+          while true; do
+            echo ">>> [$(date)] Bắt đầu gọi 'Test.yml'."
+            
+            # Lệnh này sẽ:
+            # 1. Kích hoạt 'Test.yml'
+            # 2. --ref ${{ github.ref_name }}: Chạy trên cùng một nhánh
+            # 3. -f target_url=...: Truyền input 'target_url' vào workflow 'Test.yml'
+            # 4. --wait: Chờ cho đến khi 'Test.yml' chạy xong (hoặc bị timeout sau 3 phút)
+            gh workflow run Test.yml --ref ${{ github.ref_name }} -f target_url=https://certapple.com --wait
+            
+            echo ">>> [$(date)] 'Test.yml' đã chạy xong. Bắt đầu nghỉ 30 giây."
+            sleep 30
+          done
