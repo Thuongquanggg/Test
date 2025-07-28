@@ -1,22 +1,29 @@
-# .github/workflows/Scheduler.yml
+# .github/workflows/loop-controller.yml
 
 name: Schedule and Trigger k6 Tests
 
 on:
   schedule:
-    - cron: '*/4 * * * *'
+    # SỬA LẠI: Giảm tần suất để tránh tấn công liên tục.
+    # Ví dụ: chạy mỗi giờ một lần.
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
   call-reusable-k6-test:
+    # CẢNH BÁO: Matrix sẽ chạy song song.
+    # Giảm xuống còn 1 để chạy tuần tự, hoặc 2-3 để test nhẹ.
+    # Chạy 10 job cùng lúc là rất nguy hiểm.
     strategy:
       fail-fast: false
       matrix:
-        run_number: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        run_number: [1, 2] # Giảm số lần chạy song song để an toàn
 
+    # Đường dẫn này là đúng, trỏ đến file workflow trong cùng repo.
     uses: ./.github/workflows/Test.yml
     
     with:
       target_url: 'https://certapple.com'
       
     secrets: inherit
+
