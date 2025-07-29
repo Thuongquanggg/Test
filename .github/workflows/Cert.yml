@@ -19,10 +19,9 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Chạy k6 local test
-        uses: grafana/k6-action@v0.3.1
+        uses: k6io/k6-action@v0.3.1
         with:
           # Chỉ định file kịch bản k6 để chạy
           filename: cert
 
 
-t
