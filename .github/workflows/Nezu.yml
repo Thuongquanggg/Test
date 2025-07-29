@@ -1,4 +1,4 @@
-# 🅾️ .github/workflows/nezushub.yml
+# 🅾️ .github/workflows/nezus.yml
 
 name: 🚀 Kiểm Tra Web Nezushub
 on:
