@@ -1,73 +1,239 @@
-// 🅾️ nezushub (js)
+
+
+
 
 import http from 'k6/http';
-import { check, sleep, group } from 'k6';
-const TARGET_URL = 'https://nezushub.vip';
+import { check, group, sleep } from 'k6';
+import { html } from 'k6/html';
+
+
+const BASE_URL = 'https://nezushub.vip';
+
+
+
+const USER_AGENTS = [
+'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/115.0',
+'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/114.0.1823.51',
+'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
+'Mozilla/5.0 (Linux; Android 13; SM-S908U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36'
+];
+
+
 export const options = {
+
+insecureSkipTLSVerify: true,
+
 scenarios: {
 
-lan_chay_1: {
+
+daily_traffic_simulation: {
 executor: 'ramping-vus',
 startTime: '0s',
-stages: [{ duration: '2s', target: 1000 },
-{ duration: '116s', target: 1000 },
-{ duration: '2s', target: 0 },],
-gracefulRampDown: '0s',},
+stages: [
 
-lan_chay_2: {
-executor: 'ramping-vus',
-startTime: '4m',  // 🅾️ 2 chạy + 2m nghỉ
-stages: [{ duration: '2s', target: 10000 },
-{ duration: '116s', target: 10000 },
-{ duration: '2s', target: 0 },],
-gracefulRampDown: '0s',},
-
-lan_chay_3: {
-executor: 'ramping-vus',
-startTime: '8m',  // 🅾️ 2 chạy + 2m nghỉ
-stages: [{ duration: '2s', target: 10000 },
-{ duration: '116s', target: 10000 },
-{ duration: '2s', target: 0 },],
-gracefulRampDown: '0s',},
-
-lan_chay_4: {
-executor: 'ramping-vus',
-startTime: '12m',  // 🅾️ 2 + 2m nghỉ
-stages: [{ duration: '2s', target: 10000 },
-{ duration: '116s', target: 10000 },
-{ duration: '2s', target: 0 },],
-gracefulRampDown: '0s',},
-
-lan_chay_5: {
-executor: 'ramping-vus',
-startTime: '16m',  // 🅾️ 2 + 2m nghỉ
-stages: [{ duration: '2s', target: 10000 },
-{ duration: '116s', target: 10000 },
-{ duration: '2s', target: 0 },],
-gracefulRampDown: '0s',},
-
-lan_chay_6: {
-executor: 'ramping-vus',
-startTime: '20m',  // 🅾️ 2 + 2m nghỉ
-stages: [{ duration: '2s', target: 10000 },
-{ duration: '116s', target: 10000 },
-{ duration: '2s', target: 0 },],
-gracefulRampDown: '0s',},
+{ duration: '5m', target: 20 },
 
 
+{ duration: '15m', target: 100 },
+
+
+{ duration: '30m', target: 100 },
+
+
+{ duration: '10m', target: 20 },
+
+
+{ duration: '3m', target: 0 },
+],
+
+
+gracefulStop: '2m',
 },
+},
+
+
 thresholds: {
-'http_req_duration': ['p(95)<1500'],
+'http_req_duration{type:html}': ['p(95)<3000'],
+'http_req_duration{type:asset}': ['p(95)<1500'],
 'http_req_failed': ['rate<0.05'],
-'checks': ['rate>0.95'],},
-insecureSkipTLSVerify: true,};
+'checks': ['rate>0.95'],
+},
+
+
+discardResponseBodies: false,
+};
+
+
+
+
 export default function () {
-group('Trang Chủ', function () {
-const res = http.get(TARGET_URL, {
-tags: { name: 'HomePage' },});
-check(res, {
-'Trang chủ tải thành công (status 200)': (r) => r.status === 200,
-'Nội dung trang chủ không rỗng': (r) => r.body.length > 0,});
-http.get(`${TARGET_URL}/assets/css/style.css`);
-http.get(`${TARGET_URL}/assets/js/custom.js`);});
-sleep(Math.random() * 2 + 1);}
+
+
+
+
+const random = Math.random();
+if (random < 0.2) {
+firstTimeVisitor();
+} else if (random < 0.4) {
+returningVisitor();
+} else {
+chaoticBrowser();
+}
+}
+
+
+
+
+function firstTimeVisitor() {
+const params = getBaseParams();
+group('Hành vi: Khách lần đầu', function () {
+const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
+const isStatusOk = check(res, { 'Trang chủ OK': (r) => r && r.status === 200 });
+
+
+if (isStatusOk) {
+loadPageAssets(res, params, null);
+}
+});
+
+sleep(Math.random() * 4 + 3);
+}
+
+
+
+const vuCache = new Map();
+function returningVisitor() {
+const params = getBaseParams();
+group('Hành vi: Khách quay lại', function () {
+const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
+const isStatusOk = check(res, { 'Trang chủ OK': (r) => r && r.status === 200 });
+
+
+if (isStatusOk) {
+loadPageAssets(res, params, vuCache);
+}
+});
+sleep(Math.random() * 4 + 3);
+}
+
+
+
+const internalLinks = new Set([BASE_URL]);
+function chaoticBrowser() {
+const params = getBaseParams();
+group('Hành vi: Người dùng đi dạo', function () {
+
+const linksArray = Array.from(internalLinks);
+const currentUrl = linksArray[Math.floor(Math.random() * linksArray.length)];
+
+const res = http.get(currentUrl, { ...params, tags: { type: 'html' } });
+const isStatusOk = check(res, { 'Tải trang OK': (r) => r && r.status === 200 });
+
+
+if (isStatusOk) {
+const discoveredLinks = loadPageAssets(res, params, null);
+
+discoveredLinks.forEach(link => internalLinks.add(link));
+}
+});
+sleep(Math.random() * 5 + 4);
+}
+
+
+
+
+function getBaseParams() {
+return {
+headers: {
+'User-Agent': USER_AGENTS[__VU % USER_AGENTS.length],
+'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+'Accept-Language': 'en-US,en;q=0.5',
+'Accept-Encoding': 'gzip, deflate, br',
+},
+};
+}
+
+
+function loadPageAssets(res, params, cache) {
+const discoveredLinks = new Set();
+
+
+if (!res || !res.body) {
+return Array.from(discoveredLinks);
+}
+
+const doc = html.parse(res.body);
+const assetUrls = new Set();
+
+
+doc.find('link[href], script[src], img[src], video[src], audio[src], source[src]').each((_, el) => {
+const url = el.attr('href') || el.attr('src');
+if (url) assetUrls.add(resolveUrl(url, res.url));
+});
+
+
+const contentType = res.headers['Content-Type'];
+const isCssResponse = contentType && contentType.includes('css');
+const cssBody = doc.find('style').text() + (isCssResponse ? res.body : '');
+
+const cssUrls = cssBody.match(/url\(['"]?([^'")]+)['"]?\)/g) || [];
+cssUrls.forEach(match => {
+const url = match.replace(/url\(['"]?/, '').replace(/['"]?\)/, '');
+if (url && !url.startsWith('data:')) {
+assetUrls.add(resolveUrl(url, res.url));
+}
+});
+
+
+doc.find('a[href]').each((_, el) => {
+const link = el.attr('href');
+if(link) {
+const resolvedLink = resolveUrl(link, res.url);
+
+if (resolvedLink && resolvedLink.startsWith(BASE_URL) && !resolvedLink.match(/\.(jpg|jpeg|png|gif|css|js|pdf)$/i) && !resolvedLink.includes('#')) {
+discoveredLinks.add(resolvedLink);
+}
+}
+});
+
+
+const requests = [];
+assetUrls.forEach(url => {
+if(url) {
+const assetParams = { ...params, tags: { type: 'asset' } };
+if (cache && cache.has(url)) {
+assetParams.headers['If-None-Match'] = cache.get(url);
+}
+requests.push(['GET', url, null, assetParams]);
+}
+});
+
+if (requests.length > 0) {
+const responses = http.batch(requests);
+
+if (cache) {
+responses.forEach((r, i) => {
+const url = requests[i][1];
+if (r && r.status === 200 && r.headers['Etag']) {
+cache.set(url, r.headers['Etag']);
+}
+if (r) {
+check(r, { 'Tài nguyên cache hợp lệ (200 hoặc 304)': (res) => [200, 304].includes(res.status) });
+}
+});
+}
+}
+return Array.from(discoveredLinks);
+}
+
+
+function resolveUrl(url, pageUrl) {
+try {
+
+return (new URL(url, pageUrl)).href;
+} catch (e) {
+
+return '';
+}
+}
