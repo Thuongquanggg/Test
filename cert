@@ -9,8 +9,8 @@ scenarios: {
 lan_chay_1: {
 executor: 'ramping-vus',
 startTime: '0s',
-stages: [{ duration: '2s', target: 10000 },
-{ duration: '116s', target: 10000 },
+stages: [{ duration: '2s', target: 1000 },
+{ duration: '116s', target: 1000 },
 { duration: '2s', target: 0 },],
 gracefulRampDown: '0s',},
 
