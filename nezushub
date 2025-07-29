@@ -1,4 +1,4 @@
-# 🅾️ nezushub (js)
+// 🅾️ nezushub (js)
 
 import http from 'k6/http';
 import { check, sleep, group } from 'k6';
