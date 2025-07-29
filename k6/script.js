@@ -3,7 +3,7 @@
 
 import http from 'k6/http';
 import { check, sleep, group } from 'k6';
-const TARGET_URL = 'https://nezushub.vip';
+const TARGET_URL = 'https://certapple.com';
 export const options = {
 scenarios: {
 
