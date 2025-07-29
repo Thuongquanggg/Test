@@ -1,5 +1,5 @@
 
-// Tên file: asset_tsunami_test.js
+// Tên file: asset_tsunami_test_v2.js
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
 import { html } from 'k6/html';
@@ -28,6 +28,7 @@ export const options = {
         { duration: '10m', target: 50 }, // Giữ 50 VUs trong 10 phút
         { duration: '1m', target: 0 },
       ],
+      gracefulStop: '30s',
     },
     // 20% VUs là khách quay lại, gây áp lực CPU
     returning_visitors: {
@@ -39,6 +40,7 @@ export const options = {
         { duration: '10m', target: 50 },
         { duration: '1m', target: 0 },
       ],
+      gracefulStop: '30s',
     },
     // 60% VUs là người "đi dạo", tạo traffic hỗn loạn
     chaotic_browsers: {
@@ -50,6 +52,7 @@ export const options = {
         { duration: '9m', target: 150 }, // Giữ 150 VUs trong 9 phút
         { duration: '1m', target: 0 },
       ],
+      gracefulStop: '30s',
     },
   },
   thresholds: {
@@ -67,36 +70,35 @@ export const options = {
 export function firstTimeVisitor() {
   const params = getBaseParams();
   group('Khách lần đầu', function () {
-    const res = http.get(BASE_URL, params);
+    const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
     check(res, { 'Trang chủ OK': (r) => r.status === 200 });
-    // Tải tất cả tài nguyên mà không có cache
     loadPageAssets(res, params, null);
   });
   sleep(Math.random() * 4 + 3); // 3-7s
 }
 
 // 2. KHÁCH QUAY LẠI (CÓ CACHE)
-// Biến cache này là duy nhất cho mỗi VU
 const vuCache = new Map();
 export function returningVisitor() {
   const params = getBaseParams();
   group('Khách quay lại', function () {
-    const res = http.get(BASE_URL, params);
+    const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
     check(res, { 'Trang chủ OK': (r) => r.status === 200 });
-    // Tải tài nguyên với cache đã có
     loadPageAssets(res, params, vuCache);
   });
   sleep(Math.random() * 4 + 3); // 3-7s
 }
 
 // 3. NGƯỜI DÙNG "ĐI DẠO"
-const internalLinks = new Set(); // Dùng Set để tránh link trùng lặp
+const internalLinks = new Set([BASE_URL]); // Khởi tạo với trang chủ
 export function chaoticBrowser() {
   const params = getBaseParams();
   group('Người dùng đi dạo', function () {
-    // Vòng 1: Vào trang chủ
-    let currentUrl = BASE_URL;
-    let res = http.get(currentUrl, params);
+    // Chọn một link ngẫu nhiên từ những link đã khám phá
+    const linksArray = Array.from(internalLinks);
+    const currentUrl = linksArray[Math.floor(Math.random() * linksArray.length)];
+
+    let res = http.get(currentUrl, { ...params, tags: { type: 'html' } });
     check(res, { 'Tải trang OK': (r) => r.status === 200 });
     
     // Tải tài nguyên và tìm các link mới
@@ -104,25 +106,12 @@ export function chaoticBrowser() {
     discoveredLinks.forEach(link => internalLinks.add(link));
 
     sleep(Math.random() * 3 + 2); // Đọc trang 2-5s
-
-    // Vòng 2: Click vào một link ngẫu nhiên nếu có
-    if (internalLinks.size > 0) {
-      const linksArray = Array.from(internalLinks);
-      currentUrl = linksArray[Math.floor(Math.random() * linksArray.length)];
-      
-      group('Click vào trang con', function() {
-        res = http.get(currentUrl, params);
-        check(res, { 'Tải trang con OK': (r) => r.status === 200 });
-        loadPageAssets(res, params, null);
-      });
-    }
   });
   sleep(Math.random() * 5 + 4); // 4-9s
 }
 
 // --- CÁC HÀM HỖ TRỢ ---
 
-// Hàm tạo params cơ bản cho request
 function getBaseParams() {
   return {
     headers: {
@@ -134,47 +123,48 @@ function getBaseParams() {
   };
 }
 
-// Hàm cốt lõi: Tải trang, phân tích HTML, và tải tất cả tài nguyên
+// *** HÀM CỐT LÕI ĐÃ ĐƯỢC SỬA LỖI ***
 function loadPageAssets(res, params, cache) {
   const discoveredLinks = new Set();
-  if (!res.body) return Array.from(discoveredLinks);
+  
+  // [BẢN VÁ LỖI 1]: Kiểm tra phòng thủ, nếu request lỗi hoặc không có body thì thoát
+  if (!res || !res.body) {
+    return Array.from(discoveredLinks);
+  }
 
   const doc = html.parse(res.body);
   const assetUrls = new Set();
 
-  // Tìm tất cả CSS, JS, ảnh, video, audio, font...
   doc.find('link[href], script[src], img[src], video[src], audio[src], source[src]').each((_, el) => {
     const url = el.attr('href') || el.attr('src');
     if (url) assetUrls.add(resolveUrl(url, res.url));
   });
 
-  // Tinh vi hơn: Tìm cả các tài nguyên trong CSS (ví dụ: background-image: url(...))
+  // [BẢN VÁ LỖI 2]: Sửa lại cú pháp để tương thích với k6 cũ
   const contentType = res.headers['Content-Type'];
-const cssBody = doc.find('style').text() + (contentType && contentType.includes('css') ? res.body : '');
+  const isCssResponse = contentType && contentType.includes('css');
+  const cssBody = doc.find('style').text() + (isCssResponse ? res.body : '');
+  
   const cssUrls = cssBody.match(/url\(['"]?([^'")]+)['"]?\)/g) || [];
   cssUrls.forEach(match => {
       const url = match.replace(/url\(['"]?/, '').replace(/['"]?\)/, '');
-      if (!url.startsWith('data:')) { // Bỏ qua data URI
+      if (!url.startsWith('data:')) {
           assetUrls.add(resolveUrl(url, res.url));
       }
   });
 
-  // Tìm các link nội bộ để cho "Chaotic Browser"
   doc.find('a[href]').each((_, el) => {
     const link = el.attr('href');
     const resolvedLink = resolveUrl(link, res.url);
-    // Chỉ lấy link cùng domain, không lấy link file và link neo
     if (resolvedLink.startsWith(BASE_URL) && !resolvedLink.match(/\.(jpg|jpeg|png|gif|css|js|pdf)$/i) && !resolvedLink.includes('#')) {
       discoveredLinks.add(resolvedLink);
     }
   });
 
-  // Tạo batch request để tải tài nguyên song song
   const requests = [];
   assetUrls.forEach(url => {
     const assetParams = { ...params, tags: { type: 'asset' } };
     if (cache && cache.has(url)) {
-      // Nếu là khách quay lại, thêm header cache
       assetParams.headers['If-None-Match'] = cache.get(url);
     }
     requests.push(['GET', url, null, assetParams]);
@@ -182,26 +172,25 @@ const cssBody = doc.find('style').text() + (contentType && contentType.includes(
 
   if (requests.length > 0) {
     const responses = http.batch(requests);
-    // Cập nhật cache cho khách quay lại
     if (cache) {
       responses.forEach((r, i) => {
         const url = requests[i][1];
-        if (r.status === 200 && r.headers['Etag']) {
-          cache.set(url, r.headers['Etag']); // Cập nhật ETag mới
+        if (r && r.status === 200 && r.headers['Etag']) {
+          cache.set(url, r.headers['Etag']);
         }
-        check(r, { 'Tài nguyên cache hợp lệ (200 hoặc 304)': (r) => [200, 304].includes(r.status) });
+        if (r) { // Thêm kiểm tra r tồn tại
+            check(r, { 'Tài nguyên cache hợp lệ (200 hoặc 304)': (r) => [200, 304].includes(r.status) });
+        }
       });
     }
   }
   return Array.from(discoveredLinks);
 }
 
-// Hàm chuyển đổi URL tương đối thành tuyệt đối
 function resolveUrl(url, pageUrl) {
   try {
     return (new URL(url, pageUrl)).href;
   } catch (e) {
-    // Bỏ qua các url không hợp lệ
     return '';
   }
 }
