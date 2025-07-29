@@ -1,6 +1,5 @@
 # 🅾️ .github/workflows/nezushub.yml
 
-# .github/workflows/load-test.yml
 name: 🚀 Kiểm Tra Web Nezushub
 on:
   workflow_dispatch:
@@ -8,7 +7,7 @@ on:
     - cron: '0 0 * * 0'
 jobs:
   k6_load_test:
-    name: Chạy k6 Load Test
+    name: Chạy Test
     runs-on: ubuntu-latest
     steps:
       - name:  checkout
@@ -17,6 +16,3 @@ jobs:
         uses: k6io/k6-action@v0.2.0
         with:
           filename: nezushub
-
-
-
