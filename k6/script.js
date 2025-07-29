@@ -1,3 +1,4 @@
+
 // .js
 
 import http from 'k6/http';
@@ -9,6 +10,46 @@ scenarios: {
 lan_chay_1: {
 executor: 'ramping-vus',
 startTime: '0s',
+stages: [{ duration: '2s', target: 10000 },
+{ duration: '116s', target: 10000 },
+{ duration: '2s', target: 0 },],
+gracefulRampDown: '0s',},
+
+lan_chay_2: {
+executor: 'ramping-vus',
+startTime: '4m',  // 🅾️ 2 chạy + 2m nghỉ
+stages: [{ duration: '2s', target: 10000 },
+{ duration: '116s', target: 10000 },
+{ duration: '2s', target: 0 },],
+gracefulRampDown: '0s',},
+
+lan_chay_3: {
+executor: 'ramping-vus',
+startTime: '8m',  // 🅾️ 2 chạy + 2m nghỉ
+stages: [{ duration: '2s', target: 10000 },
+{ duration: '116s', target: 10000 },
+{ duration: '2s', target: 0 },],
+gracefulRampDown: '0s',},
+
+lan_chay_4: {
+executor: 'ramping-vus',
+startTime: '12m',  // 🅾️ 2 + 2m nghỉ
+stages: [{ duration: '2s', target: 10000 },
+{ duration: '116s', target: 10000 },
+{ duration: '2s', target: 0 },],
+gracefulRampDown: '0s',},
+
+lan_chay_5: {
+executor: 'ramping-vus',
+startTime: '16m',  // 🅾️ 2 + 2m nghỉ
+stages: [{ duration: '2s', target: 10000 },
+{ duration: '116s', target: 10000 },
+{ duration: '2s', target: 0 },],
+gracefulRampDown: '0s',},
+
+lan_chay_6: {
+executor: 'ramping-vus',
+startTime: '20m',  // 🅾️ 2 + 2m nghỉ
 stages: [{ duration: '2s', target: 10000 },
 { duration: '116s', target: 10000 },
 { duration: '2s', target: 0 },],
