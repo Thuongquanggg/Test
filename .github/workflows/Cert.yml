@@ -1,6 +1,6 @@
 # .github/workflows/load-test.yml
 
-name: 🚀 Kiểm Tra Website Cert
+name: 🚀 Kiểm Tra Web Cert
 
 on:
   # Cho phép chạy thủ công từ tab Actions trên GitHub
