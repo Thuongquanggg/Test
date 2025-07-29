@@ -149,7 +149,8 @@ function loadPageAssets(res, params, cache) {
   });
 
   // Tinh vi hơn: Tìm cả các tài nguyên trong CSS (ví dụ: background-image: url(...))
-  const cssBody = doc.find('style').text() + (res.headers['Content-Type']?.includes('css') ? res.body : '');
+  const contentType = res.headers['Content-Type'];
+const cssBody = doc.find('style').text() + (contentType && contentType.includes('css') ? res.body : '');
   const cssUrls = cssBody.match(/url\(['"]?([^'")]+)['"]?\)/g) || [];
   cssUrls.forEach(match => {
       const url = match.replace(/url\(['"]?/, '').replace(/['"]?\)/, '');
