@@ -1,5 +1,5 @@
 
-// Tên file: asset_tsunami_test_v2.js
+// Tên file: asset_tsunami_test_v3.js
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
 import { html } from 'k6/html';
@@ -18,19 +18,17 @@ const USER_AGENTS = [
 export const options = {
   insecureSkipTLSVerify: true,
   scenarios: {
-    // 20% VUs là khách lần đầu, gây áp lực băng thông
     first_time_visitors: {
       executor: 'ramping-vus',
       exec: 'firstTimeVisitor',
       startTime: '0s',
       stages: [
-        { duration: '1m', target: 50 }, // Ramp-up 50 VUs trong 1 phút
-        { duration: '10m', target: 50 }, // Giữ 50 VUs trong 10 phút
+        { duration: '1m', target: 50 },
+        { duration: '10m', target: 50 },
         { duration: '1m', target: 0 },
       ],
       gracefulStop: '30s',
     },
-    // 20% VUs là khách quay lại, gây áp lực CPU
     returning_visitors: {
       executor: 'ramping-vus',
       exec: 'returningVisitor',
@@ -42,23 +40,22 @@ export const options = {
       ],
       gracefulStop: '30s',
     },
-    // 60% VUs là người "đi dạo", tạo traffic hỗn loạn
     chaotic_browsers: {
       executor: 'ramping-vus',
       exec: 'chaoticBrowser',
       startTime: '0s',
       stages: [
-        { duration: '2m', target: 150 }, // Ramp-up 150 VUs trong 2 phút
-        { duration: '9m', target: 150 }, // Giữ 150 VUs trong 9 phút
+        { duration: '2m', target: 150 },
+        { duration: '9m', target: 150 },
         { duration: '1m', target: 0 },
       ],
       gracefulStop: '30s',
     },
   },
   thresholds: {
-    'http_req_duration{type:html}': ['p(95)<3000'], // HTML phải tải dưới 3s
-    'http_req_duration{type:asset}': ['p(95)<1500'], // Tài nguyên tĩnh phải tải dưới 1.5s
-    'http_req_failed': ['rate<0.05'], // Tỷ lệ lỗi chung dưới 5%
+    'http_req_duration{type:html}': ['p(95)<3000'],
+    'http_req_duration{type:asset}': ['p(95)<1500'],
+    'http_req_failed': ['rate<0.05'],
     'checks': ['rate>0.95'],
   },
   discardResponseBodies: false,
@@ -66,48 +63,52 @@ export const options = {
 
 // --- HÀNH VI CỦA CÁC LOẠI NGƯỜI DÙNG ---
 
-// 1. KHÁCH LẦN ĐẦU (CACHE TRỐNG)
 export function firstTimeVisitor() {
   const params = getBaseParams();
   group('Khách lần đầu', function () {
     const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
-    check(res, { 'Trang chủ OK': (r) => r.status === 200 });
-    loadPageAssets(res, params, null);
+    const isStatusOk = check(res, { 'Trang chủ OK': (r) => r && r.status === 200 });
+
+    // [BẢN VÁ LỖI V3]: Chỉ tải tài nguyên nếu trang chính tải thành công
+    if (isStatusOk) {
+      loadPageAssets(res, params, null);
+    }
   });
-  sleep(Math.random() * 4 + 3); // 3-7s
+  sleep(Math.random() * 4 + 3);
 }
 
-// 2. KHÁCH QUAY LẠI (CÓ CACHE)
 const vuCache = new Map();
 export function returningVisitor() {
   const params = getBaseParams();
   group('Khách quay lại', function () {
     const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
-    check(res, { 'Trang chủ OK': (r) => r.status === 200 });
-    loadPageAssets(res, params, vuCache);
+    const isStatusOk = check(res, { 'Trang chủ OK': (r) => r && r.status === 200 });
+
+    // [BẢN VÁ LỖI V3]: Chỉ tải tài nguyên nếu trang chính tải thành công
+    if (isStatusOk) {
+      loadPageAssets(res, params, vuCache);
+    }
   });
-  sleep(Math.random() * 4 + 3); // 3-7s
+  sleep(Math.random() * 4 + 3);
 }
 
-// 3. NGƯỜI DÙNG "ĐI DẠO"
-const internalLinks = new Set([BASE_URL]); // Khởi tạo với trang chủ
+const internalLinks = new Set([BASE_URL]);
 export function chaoticBrowser() {
   const params = getBaseParams();
   group('Người dùng đi dạo', function () {
-    // Chọn một link ngẫu nhiên từ những link đã khám phá
     const linksArray = Array.from(internalLinks);
     const currentUrl = linksArray[Math.floor(Math.random() * linksArray.length)];
 
-    let res = http.get(currentUrl, { ...params, tags: { type: 'html' } });
-    check(res, { 'Tải trang OK': (r) => r.status === 200 });
-    
-    // Tải tài nguyên và tìm các link mới
-    const discoveredLinks = loadPageAssets(res, params, null);
-    discoveredLinks.forEach(link => internalLinks.add(link));
+    const res = http.get(currentUrl, { ...params, tags: { type: 'html' } });
+    const isStatusOk = check(res, { 'Tải trang OK': (r) => r && r.status === 200 });
 
-    sleep(Math.random() * 3 + 2); // Đọc trang 2-5s
+    // [BẢN VÁ LỖI V3]: Chỉ tải tài nguyên và tìm link mới NẾU trang hiện tại tải thành công
+    if (isStatusOk) {
+      const discoveredLinks = loadPageAssets(res, params, null);
+      discoveredLinks.forEach(link => internalLinks.add(link));
+    }
   });
-  sleep(Math.random() * 5 + 4); // 4-9s
+  sleep(Math.random() * 5 + 4);
 }
 
 // --- CÁC HÀM HỖ TRỢ ---
@@ -123,11 +124,9 @@ function getBaseParams() {
   };
 }
 
-// *** HÀM CỐT LÕI ĐÃ ĐƯỢC SỬA LỖI ***
 function loadPageAssets(res, params, cache) {
   const discoveredLinks = new Set();
   
-  // [BẢN VÁ LỖI 1]: Kiểm tra phòng thủ, nếu request lỗi hoặc không có body thì thoát
   if (!res || !res.body) {
     return Array.from(discoveredLinks);
   }
@@ -140,7 +139,6 @@ function loadPageAssets(res, params, cache) {
     if (url) assetUrls.add(resolveUrl(url, res.url));
   });
 
-  // [BẢN VÁ LỖI 2]: Sửa lại cú pháp để tương thích với k6 cũ
   const contentType = res.headers['Content-Type'];
   const isCssResponse = contentType && contentType.includes('css');
   const cssBody = doc.find('style').text() + (isCssResponse ? res.body : '');
@@ -155,19 +153,23 @@ function loadPageAssets(res, params, cache) {
 
   doc.find('a[href]').each((_, el) => {
     const link = el.attr('href');
-    const resolvedLink = resolveUrl(link, res.url);
-    if (resolvedLink.startsWith(BASE_URL) && !resolvedLink.match(/\.(jpg|jpeg|png|gif|css|js|pdf)$/i) && !resolvedLink.includes('#')) {
-      discoveredLinks.add(resolvedLink);
+    if(link) { // Thêm kiểm tra link tồn tại
+        const resolvedLink = resolveUrl(link, res.url);
+        if (resolvedLink && resolvedLink.startsWith(BASE_URL) && !resolvedLink.match(/\.(jpg|jpeg|png|gif|css|js|pdf)$/i) && !resolvedLink.includes('#')) {
+          discoveredLinks.add(resolvedLink);
+        }
     }
   });
 
   const requests = [];
   assetUrls.forEach(url => {
-    const assetParams = { ...params, tags: { type: 'asset' } };
-    if (cache && cache.has(url)) {
-      assetParams.headers['If-None-Match'] = cache.get(url);
+    if(url) { // Chỉ thêm vào batch nếu URL hợp lệ
+        const assetParams = { ...params, tags: { type: 'asset' } };
+        if (cache && cache.has(url)) {
+          assetParams.headers['If-None-Match'] = cache.get(url);
+        }
+        requests.push(['GET', url, null, assetParams]);
     }
-    requests.push(['GET', url, null, assetParams]);
   });
 
   if (requests.length > 0) {
@@ -178,8 +180,8 @@ function loadPageAssets(res, params, cache) {
         if (r && r.status === 200 && r.headers['Etag']) {
           cache.set(url, r.headers['Etag']);
         }
-        if (r) { // Thêm kiểm tra r tồn tại
-            check(r, { 'Tài nguyên cache hợp lệ (200 hoặc 304)': (r) => [200, 304].includes(r.status) });
+        if (r) {
+            check(r, { 'Tài nguyên cache hợp lệ (200 hoặc 304)': (res) => [200, 304].includes(res.status) });
         }
       });
     }
