@@ -1,6 +1,6 @@
 # 🅾️ .github/workflows/nezus.yml
 
-name: 🚀 Kiểm Tra Web Nezushub
+name: 🚀 Kiểm Tra Web Nezu
 on:
   workflow_dispatch:
   schedule:
