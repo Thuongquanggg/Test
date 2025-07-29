@@ -1,169 +1,206 @@
 
-// Tên file: ultimate_stress_test.js
+// Tên file: asset_tsunami_test.js
 import http from 'k6/http';
-import { check, sleep, group } from 'k6';
+import { check, group, sleep } from 'k6';
 import { html } from 'k6/html';
-import { URLSearchParams } from 'https://jslib.k6.io/url/1.0.0/index.js'; // Thư viện xử lý form data
 
 // --- CẤU HÌNH CHÍNH ---
 const BASE_URL = 'https://certapple.com';
 
-// --- BỂ DỮ LIỆU ĐỘNG ĐỂ TẠO FORM NGẪU NHIÊN ---
-// Giúp mỗi request POST đều là duy nhất, cực kỳ khó để WAF phát hiện và chặn
-const FIRST_NAMES = ['Anh', 'Bao', 'Chau', 'Dung', 'Giang', 'Hieu', 'Khanh', 'Linh', 'Minh', 'Ngoc', 'Phat', 'Quan', 'Sang', 'Thanh', 'Uyen', 'Viet'];
-const LAST_NAMES = ['Nguyen', 'Tran', 'Le', 'Pham', 'Hoang', 'Huynh', 'Phan', 'Vo', 'Vu', 'Dang'];
-const MESSAGE_WORDS = ['dich vu', 'ho tro', 'tu van', 'san pham', 'chat luong', 'gia ca', 'khuyen mai', 'bao hanh', 'chi tiet', 'thong tin', 'nhanh chong', 'gap van de'];
-
 // --- USER AGENTS ĐA DẠNG ---
 const USER_AGENTS = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/108.0',
-  'Mozilla/5.0 (iPhone; CPU iPhone OS 16_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Mobile/15E148 Safari/604.1',
-  'Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Mobile Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/109.0',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/110.0.1587.41',
 ];
 
 // --- CẤU HÌNH KỊCH BẢN TEST ---
 export const options = {
   insecureSkipTLSVerify: true,
   scenarios: {
-    // Kịch bản hỗn hợp, tăng tải từ từ nhưng cường độ cuối cùng rất cao
-    mixed_workload_attack: {
+    // 20% VUs là khách lần đầu, gây áp lực băng thông
+    first_time_visitors: {
       executor: 'ramping-vus',
+      exec: 'firstTimeVisitor',
       startTime: '0s',
       stages: [
-        { duration: '2m', target: 50 },   // Khởi động nhẹ
-        { duration: '5m', target: 200 },  // Tăng tốc, bắt đầu gây áp lực
-        { duration: '15m', target: 500 }, // Đẩy lên mức áp lực cao, tìm điểm giới hạn
-        { duration: '10m', target: 500 }, // Duy trì áp lực cao để xem hệ thống có sập không
-        { duration: '5m', target: 0 },    // Giảm tải
+        { duration: '1m', target: 50 }, // Ramp-up 50 VUs trong 1 phút
+        { duration: '10m', target: 50 }, // Giữ 50 VUs trong 10 phút
+        { duration: '1m', target: 0 },
       ],
-      gracefulRampDown: '30s',
+    },
+    // 20% VUs là khách quay lại, gây áp lực CPU
+    returning_visitors: {
+      executor: 'ramping-vus',
+      exec: 'returningVisitor',
+      startTime: '0s',
+      stages: [
+        { duration: '1m', target: 50 },
+        { duration: '10m', target: 50 },
+        { duration: '1m', target: 0 },
+      ],
+    },
+    // 60% VUs là người "đi dạo", tạo traffic hỗn loạn
+    chaotic_browsers: {
+      executor: 'ramping-vus',
+      exec: 'chaoticBrowser',
+      startTime: '0s',
+      stages: [
+        { duration: '2m', target: 150 }, // Ramp-up 150 VUs trong 2 phút
+        { duration: '9m', target: 150 }, // Giữ 150 VUs trong 9 phút
+        { duration: '1m', target: 0 },
+      ],
     },
   },
   thresholds: {
-    'http_req_duration{group:::Trang Chủ}': ['p(95)<2000'],
-    'http_req_duration{group:::Gửi Form Liên Hệ}': ['p(95)<5000'], // Cho phép thời gian xử lý form lâu hơn
-    'http_req_failed': ['rate<0.1'], // Chấp nhận tỷ lệ lỗi cao hơn một chút (10%) khi hệ thống quá tải
-    'checks': ['rate>0.9'],
+    'http_req_duration{type:html}': ['p(95)<3000'], // HTML phải tải dưới 3s
+    'http_req_duration{type:asset}': ['p(95)<1500'], // Tài nguyên tĩnh phải tải dưới 1.5s
+    'http_req_failed': ['rate<0.05'], // Tỷ lệ lỗi chung dưới 5%
+    'checks': ['rate>0.95'],
   },
-  // Rất quan trọng: k6 sẽ không lưu body của response để tiết kiệm bộ nhớ
-  // Ta cần bật nó lên để có thể phân tích HTML
   discardResponseBodies: false,
 };
 
-// --- HÀNH VI CỦA NGƯỜI DÙNG ẢO ---
-export default function () {
-  // Mỗi VU sẽ có một "lọ" cookie riêng, mô phỏng một session trình duyệt hoàn chỉnh
-  const jar = new http.CookieJar();
-  const userAgent = USER_AGENTS[__VU % USER_AGENTS.length]; // Phân bổ User Agent đều cho các VU
-  const params = {
-    headers: {
-      'User-Agent': userAgent,
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-      'Accept-Language': 'vi-VN,vi;q=0.9,fr-FR;q=0.8,fr;q=0.7,en-US;q=0.6,en;q=0.5',
-      'Accept-Encoding': 'gzip, deflate, br',
-    },
-    jar, // Gắn cookie jar vào request
-  };
+// --- HÀNH VI CỦA CÁC LOẠI NGƯỜI DÙNG ---
 
-  // --- PHÂN LUỒNG HÀNH VI ---
-  // 70% người dùng sẽ chỉ duyệt web, 30% sẽ tấn công vào form
-  // Tỷ lệ này giúp traffic trông tự nhiên hơn
-  if (Math.random() < 0.7) {
-    // --- LUỒNG 1: NGƯỜI DÙNG CHỈ XEM (70%) ---
-    browseWebsite(params);
-  } else {
-    // --- LUỒNG 2: NGƯỜI DÙNG TƯƠNG TÁC (30%) ---
-    interactAndSubmitForm(params);
-  }
-
-  // Nghỉ ngơi cuối phiên, mô phỏng người dùng rời đi hoặc chuẩn bị phiên mới
-  sleep(Math.random() * 4 + 5); // 5-9 giây
-}
-
-// --- HÀNH VI CỤ THỂ ---
-
-function browseWebsite(params) {
-  group('Người dùng chỉ xem', function () {
+// 1. KHÁCH LẦN ĐẦU (CACHE TRỐNG)
+export function firstTimeVisitor() {
+  const params = getBaseParams();
+  group('Khách lần đầu', function () {
     const res = http.get(BASE_URL, params);
     check(res, { 'Trang chủ OK': (r) => r.status === 200 });
+    // Tải tất cả tài nguyên mà không có cache
+    loadPageAssets(res, params, null);
+  });
+  sleep(Math.random() * 4 + 3); // 3-7s
+}
+
+// 2. KHÁCH QUAY LẠI (CÓ CACHE)
+// Biến cache này là duy nhất cho mỗi VU
+const vuCache = new Map();
+export function returningVisitor() {
+  const params = getBaseParams();
+  group('Khách quay lại', function () {
+    const res = http.get(BASE_URL, params);
+    check(res, { 'Trang chủ OK': (r) => r.status === 200 });
+    // Tải tài nguyên với cache đã có
+    loadPageAssets(res, params, vuCache);
+  });
+  sleep(Math.random() * 4 + 3); // 3-7s
+}
+
+// 3. NGƯỜI DÙNG "ĐI DẠO"
+const internalLinks = new Set(); // Dùng Set để tránh link trùng lặp
+export function chaoticBrowser() {
+  const params = getBaseParams();
+  group('Người dùng đi dạo', function () {
+    // Vòng 1: Vào trang chủ
+    let currentUrl = BASE_URL;
+    let res = http.get(currentUrl, params);
+    check(res, { 'Tải trang OK': (r) => r.status === 200 });
     
-    // Mô phỏng trình duyệt tải các tài nguyên tĩnh song song
-    loadStaticAssets(res);
+    // Tải tài nguyên và tìm các link mới
+    const discoveredLinks = loadPageAssets(res, params, null);
+    discoveredLinks.forEach(link => internalLinks.add(link));
 
-    sleep(Math.random() * 3 + 1); // Đọc trang chủ 1-4s
+    sleep(Math.random() * 3 + 2); // Đọc trang 2-5s
+
+    // Vòng 2: Click vào một link ngẫu nhiên nếu có
+    if (internalLinks.size > 0) {
+      const linksArray = Array.from(internalLinks);
+      currentUrl = linksArray[Math.floor(Math.random() * linksArray.length)];
+      
+      group('Click vào trang con', function() {
+        res = http.get(currentUrl, params);
+        check(res, { 'Tải trang con OK': (r) => r.status === 200 });
+        loadPageAssets(res, params, null);
+      });
+    }
   });
+  sleep(Math.random() * 5 + 4); // 4-9s
 }
 
-function interactAndSubmitForm(params) {
-  group('Người dùng tương tác', function () {
-    // Bước 1: Vào trang chủ như bình thường
-    const homeRes = http.get(BASE_URL, params);
-    check(homeRes, { 'Trang chủ OK': (r) => r.status === 200 });
-    loadStaticAssets(homeRes);
-    sleep(Math.random() * 2 + 1); // Đọc trang chủ 1-3s
+// --- CÁC HÀM HỖ TRỢ ---
 
-    // Bước 2: Điều hướng đến trang liên hệ
-    // (Giả sử URL là /lien-he, bạn cần thay đổi cho đúng với web của mình)
-    const contactUrl = `${BASE_URL}/lien-he`;
-    group('Xem trang Liên hệ', function () {
-      const contactRes = http.get(contactUrl, params);
-      check(contactRes, { 'Trang liên hệ OK': (r) => r.status === 200 });
-      sleep(Math.random() * 3 + 2); // Đọc trang liên hệ 2-5s
-    });
-
-    // Bước 3: Gửi Form với dữ liệu ngẫu nhiên
-    group('Gửi Form Liên Hệ', function () {
-      const formBuilder = new URLSearchParams();
-      // Tạo dữ liệu ngẫu nhiên
-      const randomFirstName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
-      const randomLastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
-      const randomEmail = `${randomFirstName.toLowerCase()}.${randomLastName.toLowerCase()}${__VU}@example.com`;
-      const randomMessage = MESSAGE_WORDS.sort(() => 0.5 - Math.random()).slice(0, 5).join(' ');
-
-      // Điền dữ liệu vào form.
-      // !!! QUAN TRỌNG: Bạn phải mở DevTools (F12) trên web của mình,
-      // xem tab Network khi gửi form để lấy đúng tên của các trường (name, email, message, v.v.)
-      formBuilder.append('your-name', `${randomFirstName} ${randomLastName}`);
-      formBuilder.append('your-email', randomEmail);
-      formBuilder.append('your-subject', 'Yeu cau ho tro');
-      formBuilder.append('your-message', `Tôi cần ${randomMessage}`);
-      // formBuilder.append('_wpcf7_unit_tag', '...'); // Ví dụ nếu có các trường ẩn
-
-      const postRes = http.post(contactUrl, formBuilder.toString(), {
-        ...params,
-        headers: {
-          ...params.headers,
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Origin': BASE_URL,
-          'Referer': contactUrl,
-        },
-      });
-
-      check(postRes, {
-        'Gửi form thành công (status 200)': (r) => r.status === 200,
-        'Có thông báo cảm ơn': (r) => r.body.includes('Cảm ơn bạn đã gửi tin'), // Sửa lại cho đúng với thông báo trên web của bạn
-      });
-    });
-  });
+// Hàm tạo params cơ bản cho request
+function getBaseParams() {
+  return {
+    headers: {
+      'User-Agent': USER_AGENTS[__VU % USER_AGENTS.length],
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+      'Accept-Encoding': 'gzip, deflate, br',
+    },
+  };
 }
 
-function loadStaticAssets(response) {
-  if (!response.body) return;
+// Hàm cốt lõi: Tải trang, phân tích HTML, và tải tất cả tài nguyên
+function loadPageAssets(res, params, cache) {
+  const discoveredLinks = new Set();
+  if (!res.body) return Array.from(discoveredLinks);
 
-  const doc = html.parse(response.body);
-  const assets = [];
-  // Tìm tất cả các file CSS, JS, và các ảnh phổ biến
-  doc.find('link[href$=".css"], script[src$=".js"], img[src]').each((idx, el) => {
-    const assetUrl = el.attr('href') || el.attr('src');
-    // Chỉ lấy asset nội bộ, bỏ qua asset từ domain khác (google fonts, facebook pixel...)
-    if (assetUrl.startsWith('/') && !assetUrl.startsWith('//')) {
-      assets.push(`${BASE_URL}${assetUrl}`);
+  const doc = html.parse(res.body);
+  const assetUrls = new Set();
+
+  // Tìm tất cả CSS, JS, ảnh, video, audio, font...
+  doc.find('link[href], script[src], img[src], video[src], audio[src], source[src]').each((_, el) => {
+    const url = el.attr('href') || el.attr('src');
+    if (url) assetUrls.add(resolveUrl(url, res.url));
+  });
+
+  // Tinh vi hơn: Tìm cả các tài nguyên trong CSS (ví dụ: background-image: url(...))
+  const cssBody = doc.find('style').text() + (res.headers['Content-Type']?.includes('css') ? res.body : '');
+  const cssUrls = cssBody.match(/url\(['"]?([^'")]+)['"]?\)/g) || [];
+  cssUrls.forEach(match => {
+      const url = match.replace(/url\(['"]?/, '').replace(/['"]?\)/, '');
+      if (!url.startsWith('data:')) { // Bỏ qua data URI
+          assetUrls.add(resolveUrl(url, res.url));
+      }
+  });
+
+  // Tìm các link nội bộ để cho "Chaotic Browser"
+  doc.find('a[href]').each((_, el) => {
+    const link = el.attr('href');
+    const resolvedLink = resolveUrl(link, res.url);
+    // Chỉ lấy link cùng domain, không lấy link file và link neo
+    if (resolvedLink.startsWith(BASE_URL) && !resolvedLink.match(/\.(jpg|jpeg|png|gif|css|js|pdf)$/i) && !resolvedLink.includes('#')) {
+      discoveredLinks.add(resolvedLink);
     }
   });
 
-  if (assets.length > 0) {
-    // Tải song song các asset, mô phỏng trình duyệt thực thụ
-    http.batch(assets.map(url => ['GET', url, null, { headers: { 'User-Agent': USER_AGENTS[0] } }]));
+  // Tạo batch request để tải tài nguyên song song
+  const requests = [];
+  assetUrls.forEach(url => {
+    const assetParams = { ...params, tags: { type: 'asset' } };
+    if (cache && cache.has(url)) {
+      // Nếu là khách quay lại, thêm header cache
+      assetParams.headers['If-None-Match'] = cache.get(url);
+    }
+    requests.push(['GET', url, null, assetParams]);
+  });
+
+  if (requests.length > 0) {
+    const responses = http.batch(requests);
+    // Cập nhật cache cho khách quay lại
+    if (cache) {
+      responses.forEach((r, i) => {
+        const url = requests[i][1];
+        if (r.status === 200 && r.headers['Etag']) {
+          cache.set(url, r.headers['Etag']); // Cập nhật ETag mới
+        }
+        check(r, { 'Tài nguyên cache hợp lệ (200 hoặc 304)': (r) => [200, 304].includes(r.status) });
+      });
+    }
+  }
+  return Array.from(discoveredLinks);
+}
+
+// Hàm chuyển đổi URL tương đối thành tuyệt đối
+function resolveUrl(url, pageUrl) {
+  try {
+    return (new URL(url, pageUrl)).href;
+  } catch (e) {
+    // Bỏ qua các url không hợp lệ
+    return '';
   }
 }
