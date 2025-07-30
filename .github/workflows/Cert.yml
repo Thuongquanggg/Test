@@ -1,27 +1,42 @@
-# 🅾️.github/workflows/load-test.yml
-
-name: 🚀 Kiểm Tra Web Cert
+name: k6 Debug Workflow
 
 on:
   # Cho phép chạy thủ công từ tab Actions trên GitHub
   workflow_dispatch:
-  # Chạy tự động vào 0h sáng Chủ Nhật hàng tuần (giờ UTC)
-  schedule:
-    - cron: '0 0 * * 0'
 
 jobs:
-  k6_load_test:
-    name: Chạy k6 Load Test
+  k6-debug-test:
     runs-on: ubuntu-latest
-
     steps:
-      - name:  checkout
+      # Step 1: Checkout code từ repository của bạn
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Chạy k6 local test
-        uses: k6io/k6-action@v0.3.1
+      # Step 2: Chạy k6 với chế độ debug và lưu output vào file
+      # Đây là bước quan trọng nhất
+      - name: Run k6 in debug mode
+        uses: grafana/k6-action@v0.2.0
         with:
-          # Chỉ định file kịch bản k6 để chạy
-          filename: cert
-
-
+          # Tên file kịch bản của bạn
+          filename: certapple_test.js
+          # Thêm cờ để chạy debug
+          # --vus 1 --iterations 1: Chỉ chạy 1 lần để lấy log, không cần load test
+          # --http-debug="full": In ra toàn bộ request và response
+          # > k6-debug-output.log: Chuyển hướng toàn bộ output vào một file log
+          flags: '--vus 1 --iterations 1 --http-debug="full"'
+        # Thêm 'continue-on-error' để workflow không bị dừng ngay cả khi k6 báo lỗi
+        # Điều này đảm bảo chúng ta luôn có file log để xem
+        continue-on-error: true
+        # Chạy lệnh shell để lưu output
+        run: |
+          k6 run --vus 1 --iterations 1 --http-debug="full" certapple_test.js > k6-debug-output.log 2>&1
+          
+      # Step 3: Upload file log debug thành một "artifact"
+      # Artifact là file được lưu trữ lại sau khi workflow chạy xong
+      - name: Upload k6 debug log
+        uses: actions/upload-artifact@v3
+        with:
+          # Tên của artifact khi bạn tải về
+          name: k6-debug-log
+          # Đường dẫn đến file log vừa tạo
+          path: k6-debug-output.log
