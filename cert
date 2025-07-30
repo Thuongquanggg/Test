@@ -44,7 +44,7 @@ export const options = {
         { duration: '30m', target: 1000 },  // Giảm xuống còn 20 người dùng.
 
         // Giai đoạn 5: Cuối ngày (3 phút) - Giảm tải hoàn toàn.
-        { duration: '600m', target: 1000 },    // Giảm về 0.
+        { duration: '600m', target: 1200 },    // Giảm về 0.
       ],
       // Cho các VUs có nhiều thời gian hơn để hoàn thành vòng lặp cuối cùng,
       // đặc biệt quan trọng trong các bài test dài.
