@@ -16,13 +16,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        # [TỐI ƯU] Sử dụng phiên bản checkout mới nhất
+        # Sử dụng phiên bản checkout mới nhất là một thói quen tốt
         uses: actions/checkout@v4
 
       - name: Chạy k6 local test
-        # [SỬA LỖI] Sử dụng phiên bản k6-action mới nhất (v0.4.0 tại thời điểm này)
-        # Phiên bản này sử dụng k6 v0.50.0, đảm bảo module k6/html hoạt động ổn định.
-        uses: k6io/k6-action@v0.4.0
+        # [SỬA LỖI] Quay lại phiên bản ổn định và chính xác là v0.3.1
+        uses: k6io/k6-action@v0.3.1
         with:
-          # [SỬA LỖI] Chỉ định tên file đầy đủ, bao gồm cả phần mở rộng .js
-          filename: cert
+          # [SỬA LỖI QUAN TRỌNG NHẤT] Chỉ định tên file đầy đủ, bao gồm cả phần mở rộng .js
+          filename: cert.js
