@@ -1,4 +1,6 @@
-// 🅾️ Tên file: cert (js)
+
+
+// 🅾️ Tên file: cert.js
 // Kịch bản kiểm thử sức bền, mô phỏng chu kỳ hoạt động dài (hơn 1 giờ).
 // Tích hợp các kỹ thuật tấn công đa chiều và hành vi người dùng phức tạp.
 
@@ -8,6 +10,32 @@ import { html } from 'k6/html';
 
 // --- CẤU HÌNH CHÍNH ---
 const BASE_URL = 'https://certapple.com';
+
+// --- BỂ DỮ LIỆU PROXY (MỚI THÊM) ---
+// Cảnh báo: Proxy miễn phí rất không ổn định, có thể chậm, lỗi hoặc bị chặn.
+// Chỉ nên dùng cho mục đích thử nghiệm, không dùng cho kiểm thử hiệu năng quan trọng.
+const PROXIES = [
+  'http://45.79.123.180:80',
+  'http://139.177.182.208:3128',
+  'http://138.197.223.116:80',
+  'http://104.248.63.13:80',
+  'http://165.22.241.115:80',
+  'http://167.71.5.83:80',
+  'http://159.65.161.219:80',
+  'http://167.99.245.193:80',
+  'http://134.209.29.120:3128',
+  'http://167.172.248.55:80',
+  'http://157.245.63.136:80',
+  'http://165.227.124.223:80',
+  'http://138.68.161.225:80',
+  'http://142.93.170.165:80',
+  'http://159.89.190.163:80',
+  'http://64.227.10.150:80',
+  'http://167.99.249.11:80',
+  'http://159.203.84.149:3128',
+  'http://134.122.81.189:80',
+  'http://167.71.228.133:80'
+];
 
 // --- BỂ DỮ LIỆU USER AGENTS ---
 // Giúp mỗi request trông như đến từ một trình duyệt/thiết bị khác nhau.
@@ -32,13 +60,13 @@ export const options = {
       startTime: '0s',
       stages: [
         // Giai đoạn 1: Sáng sớm (5 phút) - Rất ít người dùng, khởi động hệ thống.
-        { duration: '1s', target: 1000 },   // Tăng từ từ lên 20 người dùng.
+        { duration: '5m', target: 30 },   // Tăng từ từ lên 20 người dùng.
 
         // Giai đoạn 2: Bắt đầu giờ làm việc (15 phút) - Traffic tăng dần.
-        { duration: '150m', target: 1000 }, // Tăng lên 100 người dùng.
+        { duration: '15m', target: 120 }, // Tăng lên 100 người dùng.
 
         // Giai đoạn 3: Giờ cao điểm (30 phút) - Duy trì tải trọng cao để tìm lỗi rò rỉ.
-        { duration: '30m', target: 1000 }, // Giữ ổn định ở 100 người dùng.
+        { duration: '30m', target: 100 }, // Giữ ổn định ở 160 người dùng.
 
         // Giai đoạn 4: Hết giờ cao điểm (10 phút) - Traffic giảm dần.
         { duration: '10m', target: 20 },  // Giảm xuống còn 20 người dùng.
@@ -54,10 +82,10 @@ export const options = {
 
   // Ngưỡng chịu tải: Test sẽ thất bại nếu các điều kiện này bị vi phạm.
   thresholds: {
-    'http_req_duration{type:html}': ['p(95)<3000'], // 95% request HTML phải tải dưới 3s.
-    'http_req_duration{type:asset}': ['p(95)<1500'],// 95% request tài nguyên tĩnh phải tải dưới 1.5s.
-    'http_req_failed': ['rate<0.05'],               // Tỷ lệ request lỗi chung phải dưới 5%.
-    'checks': ['rate>0.95'],                        // Tỷ lệ các bước kiểm tra thành công phải trên 95%.
+    'http_req_duration{type:html}': ['p(95)<5000'], // Tăng ngưỡng lên 5s vì proxy rất chậm
+    'http_req_duration{type:asset}': ['p(95)<3000'],// Tăng ngưỡng lên 3s
+    'http_req_failed': ['rate<0.3'],                // Tăng tỷ lệ lỗi cho phép lên 30% vì proxy
+    'checks': ['rate>0.7'],                         // Giảm tỷ lệ check thành công xuống 70%
   },
   
   // Rất quan trọng: Phải tắt discardResponseBodies để có thể dùng html.parse().
@@ -143,8 +171,15 @@ function chaoticBrowser() {
 // --- CÁC HÀM HỖ TRỢ ---
 
 // Hàm tạo các header cơ bản cho một request, giả lập trình duyệt.
+// *** ĐÂY LÀ HÀM ĐÃ ĐƯỢC CHỈNH SỬA ĐỂ CHÈN PROXY ***
 function getBaseParams() {
+  // Chọn một proxy cho VU này theo kiểu round-robin (xoay vòng).
+  // __VU là ID của người dùng ảo (bắt đầu từ 1).
+  // Phép toán modulo (%) đảm bảo mỗi VU sẽ lấy 1 proxy trong danh sách.
+  const proxy = PROXIES[(__VU - 1) % PROXIES.length];
+
   return {
+    proxy: proxy, // Thêm proxy vào mỗi request
     headers: {
       'User-Agent': USER_AGENTS[__VU % USER_AGENTS.length],
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -201,6 +236,7 @@ function loadPageAssets(res, params, cache) {
   const requests = [];
   assetUrls.forEach(url => {
     if(url) {
+        // Quan trọng: Phải truyền params (đã chứa proxy) vào đây
         const assetParams = { ...params, tags: { type: 'asset' } };
         if (cache && cache.has(url)) {
           assetParams.headers['If-None-Match'] = cache.get(url);
