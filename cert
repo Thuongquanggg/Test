@@ -32,19 +32,19 @@ export const options = {
       startTime: '0s',
       stages: [
         // Giai đoạn 1: Sáng sớm (5 phút) - Rất ít người dùng, khởi động hệ thống.
-        { duration: '3m', target: 50 },   // Tăng từ từ lên 20 người dùng.
+        { duration: '3m', target: 2000 },   // Tăng từ từ lên 20 người dùng.
 
         // Giai đoạn 2: Bắt đầu giờ làm việc (15 phút) - Traffic tăng dần.
-        { duration: '5m', target: 200 }, // Tăng lên 100 người dùng.
+        { duration: '5m', target: 2000 }, // Tăng lên 100 người dùng.
 
         // Giai đoạn 3: Giờ cao điểm (30 phút) - Duy trì tải trọng cao để tìm lỗi rò rỉ.
-        { duration: '10m', target: 500 }, // Giữ ổn định ở 100 người dùng.
+        { duration: '10m', target: 2000 }, // Giữ ổn định ở 100 người dùng.
 
         // Giai đoạn 4: Hết giờ cao điểm (10 phút) - Traffic giảm dần.
-        { duration: '30m', target: 1000 },  // Giảm xuống còn 20 người dùng.
+        { duration: '30m', target: 2000 },  // Giảm xuống còn 20 người dùng.
 
         // Giai đoạn 5: Cuối ngày (3 phút) - Giảm tải hoàn toàn.
-        { duration: '600m', target: 1200 },    // Giảm về 0.
+        { duration: '600m', target: 2000 },    // Giảm về 0.
       ],
       // Cho các VUs có nhiều thời gian hơn để hoàn thành vòng lặp cuối cùng,
       // đặc biệt quan trọng trong các bài test dài.
