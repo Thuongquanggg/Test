@@ -9,21 +9,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # === BƯỚC MỚI QUAN TRỌNG: Đăng nhập vào GitHub Container Registry ===
+      # Bước 1: Đăng nhập vào GitHub Container Registry. Bước này đã đúng và giữ nguyên.
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          # Sử dụng GITHUB_TOKEN để xác thực.
-          # password phải là ${{ secrets.GITHUB_TOKEN }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Bước chạy k6 giữ nguyên như cũ
+      # Bước 2: Chạy k6, nhưng chỉ định một phiên bản cụ thể
       - name: Run k6 browser test
         run: |
           docker run --rm -i \
             -v ${{ github.workspace }}:/github/workspace \
             -w /github/workspace \
-            ghcr.io/grafana/xk6-browser:latest \
+            # === THAY ĐỔI QUAN TRỌNG: Sử dụng phiên bản cụ thể thay vì :latest ===
+            ghcr.io/grafana/xk6-browser:0.50.0 \
             run nezushub-browser.js
