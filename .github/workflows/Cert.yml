@@ -1,4 +1,4 @@
-# 🅾️ .github/workflows/Cert.yml
+# 🅾️.github/workflows/Cert.yml
 
 name: 🚀 Kiểm Tra Web Cert
 
@@ -15,13 +15,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        # Sử dụng phiên bản checkout mới nhất là một thói quen tốt
-        uses: actions/checkout@v4
+      - name:  checkout
+        uses: actions/checkout@v3
 
       - name: Chạy k6 local test
-        # [SỬA LỖI] Quay lại phiên bản ổn định và chính xác là v0.3.1
         uses: k6io/k6-action@v0.3.1
         with:
-          # [SỬA LỖI QUAN TRỌNG NHẤT] Chỉ định tên file đầy đủ, bao gồm cả phần mở rộng .js
-          filename: cert.js
+          # Chỉ định file kịch bản k6 để chạy
+          filename: cert
