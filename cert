@@ -32,10 +32,10 @@ export const options = {
       startTime: '0s',
       stages: [
         // Giai đoạn 1: Sáng sớm (5 phút) - Rất ít người dùng, khởi động hệ thống.
-        { duration: '5m', target: 200 },   // Tăng từ từ lên 20 người dùng.
+        { duration: '1s', target: 1000 },   // Tăng từ từ lên 20 người dùng.
 
         // Giai đoạn 2: Bắt đầu giờ làm việc (15 phút) - Traffic tăng dần.
-        { duration: '15m', target: 1000 }, // Tăng lên 100 người dùng.
+        { duration: '150m', target: 1000 }, // Tăng lên 100 người dùng.
 
         // Giai đoạn 3: Giờ cao điểm (30 phút) - Duy trì tải trọng cao để tìm lỗi rò rỉ.
         { duration: '30m', target: 1000 }, // Giữ ổn định ở 100 người dùng.
