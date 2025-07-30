@@ -16,7 +16,7 @@ import { html } from 'k6/html';
 import { SharedArray } from 'k6/data';
 
 // --- CẤU HÌNH CHÍNH ---
-const BASE_URL = 'https://nezushub.vip'; // Thay bằng trang của bạn
+const BASE_URL = 'https://certapple.com'; // Thay bằng trang của bạn
 
 // --- BỂ DỮ LIỆU NÂNG CAO ---
 
@@ -64,8 +64,8 @@ export const options = {
       executor: 'ramping-vus',
       startVUs: 0,
       stages: [
-        { duration: '5m', target: 60 }, // 60% của 100 VUs
-        { duration: '30m', target: 60 },
+        { duration: '5m', target: 100 }, // 60% của 100 VUs
+        { duration: '30m', target: 300 },
         { duration: '5m', target: 0 },
       ],
       exec: 'guestBehavior',
@@ -74,8 +74,8 @@ export const options = {
       executor: 'ramping-vus',
       startVUs: 0,
       stages: [
-        { duration: '5m', target: 40 }, // 40% của 100 VUs
-        { duration: '30m', target: 40 },
+        { duration: '5m', target: 80 }, // 40% của 100 VUs
+        { duration: '30m', target: 250 },
         { duration: '5m', target: 0 },
       ],
       exec: 'authenticatedBehavior',
