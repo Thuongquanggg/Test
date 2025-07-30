@@ -1,0 +1,239 @@
+// 🅾️ Tên file: cert (js)
+// Kịch bản kiểm thử sức bền, mô phỏng chu kỳ hoạt động dài (hơn 1 giờ).
+// Tích hợp các kỹ thuật tấn công đa chiều và hành vi người dùng phức tạp.
+
+import http from 'k6/http';
+import { check, group, sleep } from 'k6';
+import { html } from 'k6/html';
+
+// --- CẤU HÌNH CHÍNH ---
+const BASE_URL = 'https://certapple.com';
+
+// --- BỂ DỮ LIỆU USER AGENTS ---
+// Giúp mỗi request trông như đến từ một trình duyệt/thiết bị khác nhau.
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/115.0',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/114.0.1823.51',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
+  'Mozilla/5.0 (Linux; Android 13; SM-S908U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36'
+];
+
+// --- CẤU HÌNH KỊCH BẢN TEST (TỔNG THỜI GIAN: 63 PHÚT + GRACEFUL STOP) ---
+export const options = {
+  // Bỏ qua xác thực TLS nếu cần (hữu ích khi test môi trường dev).
+  insecureSkipTLSVerify: true,
+  
+  scenarios: {
+    // Một kịch bản duy nhất điều khiển toàn bộ luồng traffic,
+    // mô phỏng một chu kỳ hoạt động nhịp nhàng.
+    daily_traffic_simulation: {
+      executor: 'ramping-vus',
+      startTime: '0s',
+      stages: [
+        // Giai đoạn 1: Sáng sớm (5 phút) - Rất ít người dùng, khởi động hệ thống.
+        { duration: '5m', target: 20 },   // Tăng từ từ lên 20 người dùng.
+
+        // Giai đoạn 2: Bắt đầu giờ làm việc (15 phút) - Traffic tăng dần.
+        { duration: '15m', target: 100 }, // Tăng lên 100 người dùng.
+
+        // Giai đoạn 3: Giờ cao điểm (30 phút) - Duy trì tải trọng cao để tìm lỗi rò rỉ.
+        { duration: '30m', target: 100 }, // Giữ ổn định ở 100 người dùng.
+
+        // Giai đoạn 4: Hết giờ cao điểm (10 phút) - Traffic giảm dần.
+        { duration: '10m', target: 20 },  // Giảm xuống còn 20 người dùng.
+
+        // Giai đoạn 5: Cuối ngày (3 phút) - Giảm tải hoàn toàn.
+        { duration: '3m', target: 0 },    // Giảm về 0.
+      ],
+      // Cho các VUs có nhiều thời gian hơn để hoàn thành vòng lặp cuối cùng,
+      // đặc biệt quan trọng trong các bài test dài.
+      gracefulStop: '2m', 
+    },
+  },
+
+  // Ngưỡng chịu tải: Test sẽ thất bại nếu các điều kiện này bị vi phạm.
+  thresholds: {
+    'http_req_duration{type:html}': ['p(95)<3000'], // 95% request HTML phải tải dưới 3s.
+    'http_req_duration{type:asset}': ['p(95)<1500'],// 95% request tài nguyên tĩnh phải tải dưới 1.5s.
+    'http_req_failed': ['rate<0.05'],               // Tỷ lệ request lỗi chung phải dưới 5%.
+    'checks': ['rate>0.95'],                        // Tỷ lệ các bước kiểm tra thành công phải trên 95%.
+  },
+  
+  // Rất quan trọng: Phải tắt discardResponseBodies để có thể dùng html.parse().
+  discardResponseBodies: false,
+};
+
+// --- ĐIỂM VÀO CHÍNH CỦA NGƯỜI DÙNG ẢO ---
+// Mỗi VU khi bắt đầu một vòng lặp sẽ chạy hàm này.
+// Nó sẽ tự quyết định hành vi một cách ngẫu nhiên.
+export default function () {
+  // Phân luồng hành vi động:
+  // 20% là khách lần đầu (gây áp lực băng thông).
+  // 20% là khách quay lại (gây áp lực CPU/IO).
+  // 60% là người đi dạo (gây rối loạn cache, tìm lỗi logic).
+  const random = Math.random();
+  if (random < 0.2) {
+    firstTimeVisitor();
+  } else if (random < 0.4) {
+    returningVisitor();
+  } else {
+    chaoticBrowser();
+  }
+}
+
+// --- CÁC HÀM MÔ PHỎNG HÀNH VI CỤ THỂ ---
+
+// Hành vi 1: Khách truy cập lần đầu, cache trống.
+function firstTimeVisitor() {
+  const params = getBaseParams();
+  group('Hành vi: Khách lần đầu', function () {
+    const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
+    const isStatusOk = check(res, { 'Trang chủ OK': (r) => r && r.status === 200 });
+
+    // Chỉ tải tài nguyên nếu trang chính tải thành công.
+    if (isStatusOk) {
+      loadPageAssets(res, params, null);
+    }
+  });
+  // "Think time": Người dùng dừng lại suy nghĩ trước khi rời đi.
+  sleep(Math.random() * 4 + 3); // 3-7 giây.
+}
+
+// Hành vi 2: Khách quay lại, sử dụng cache.
+// Biến cache này là duy nhất cho mỗi VU, mô phỏng cache của một trình duyệt.
+const vuCache = new Map();
+function returningVisitor() {
+  const params = getBaseParams();
+  group('Hành vi: Khách quay lại', function () {
+    const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
+    const isStatusOk = check(res, { 'Trang chủ OK': (r) => r && r.status === 200 });
+
+    // Chỉ tải tài nguyên nếu trang chính tải thành công.
+    if (isStatusOk) {
+      loadPageAssets(res, params, vuCache);
+    }
+  });
+  sleep(Math.random() * 4 + 3); // 3-7 giây.
+}
+
+// Hành vi 3: Người dùng "đi dạo", click lung tung.
+// Biến này được chia sẻ giữa các VUs để chúng cùng nhau khám phá trang web.
+const internalLinks = new Set([BASE_URL]);
+function chaoticBrowser() {
+  const params = getBaseParams();
+  group('Hành vi: Người dùng đi dạo', function () {
+    // Chọn một link ngẫu nhiên từ những link đã khám phá được.
+    const linksArray = Array.from(internalLinks);
+    const currentUrl = linksArray[Math.floor(Math.random() * linksArray.length)];
+
+    const res = http.get(currentUrl, { ...params, tags: { type: 'html' } });
+    const isStatusOk = check(res, { 'Tải trang OK': (r) => r && r.status === 200 });
+
+    // Chỉ tải tài nguyên và tìm link mới NẾU trang hiện tại tải thành công.
+    if (isStatusOk) {
+      const discoveredLinks = loadPageAssets(res, params, null);
+      // Thêm các link mới tìm thấy vào "bộ nhớ chung".
+      discoveredLinks.forEach(link => internalLinks.add(link));
+    }
+  });
+  sleep(Math.random() * 5 + 4); // 4-9 giây.
+}
+
+// --- CÁC HÀM HỖ TRỢ ---
+
+// Hàm tạo các header cơ bản cho một request, giả lập trình duyệt.
+function getBaseParams() {
+  return {
+    headers: {
+      'User-Agent': USER_AGENTS[__VU % USER_AGENTS.length],
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
+      'Accept-Encoding': 'gzip, deflate, br',
+    },
+  };
+}
+
+// Hàm cốt lõi: Phân tích HTML, tìm và tải tất cả tài nguyên tĩnh.
+function loadPageAssets(res, params, cache) {
+  const discoveredLinks = new Set();
+  
+  // Lập trình phòng thủ: Nếu request lỗi, thoát ngay.
+  if (!res || !res.body) {
+    return Array.from(discoveredLinks);
+  }
+
+  const doc = html.parse(res.body);
+  const assetUrls = new Set();
+
+  // Tìm tất cả các tài nguyên có thể tải được trong HTML.
+  doc.find('link[href], script[src], img[src], video[src], audio[src], source[src]').each((_, el) => {
+    const url = el.attr('href') || el.attr('src');
+    if (url) assetUrls.add(resolveUrl(url, res.url));
+  });
+
+  // Tìm tài nguyên bên trong thẻ <style> hoặc file .css.
+  const contentType = res.headers['Content-Type'];
+  const isCssResponse = contentType && contentType.includes('css');
+  const cssBody = doc.find('style').text() + (isCssResponse ? res.body : '');
+  
+  const cssUrls = cssBody.match(/url\(['"]?([^'")]+)['"]?\)/g) || [];
+  cssUrls.forEach(match => {
+      const url = match.replace(/url\(['"]?/, '').replace(/['"]?\)/, '');
+      if (url && !url.startsWith('data:')) {
+          assetUrls.add(resolveUrl(url, res.url));
+      }
+  });
+
+  // Tìm các link <a> để cho "Người dùng đi dạo".
+  doc.find('a[href]').each((_, el) => {
+    const link = el.attr('href');
+    if(link) {
+        const resolvedLink = resolveUrl(link, res.url);
+        // Chỉ lấy link nội bộ, không phải file và không phải link neo.
+        if (resolvedLink && resolvedLink.startsWith(BASE_URL) && !resolvedLink.match(/\.(jpg|jpeg|png|gif|css|js|pdf)$/i) && !resolvedLink.includes('#')) {
+          discoveredLinks.add(resolvedLink);
+        }
+    }
+  });
+
+  // Tạo một batch request để tải tất cả tài nguyên song song.
+  const requests = [];
+  assetUrls.forEach(url => {
+    if(url) {
+        const assetParams = { ...params, tags: { type: 'asset' } };
+        if (cache && cache.has(url)) {
+          assetParams.headers['If-None-Match'] = cache.get(url);
+        }
+        requests.push(['GET', url, null, assetParams]);
+    }
+  });
+
+  if (requests.length > 0) {
+    const responses = http.batch(requests);
+    // Nếu là khách quay lại, cập nhật cache.
+    if (cache) {
+      responses.forEach((r, i) => {
+        const url = requests[i][1];
+        if (r && r.status === 200 && r.headers['Etag']) {
+          cache.set(url, r.headers['Etag']);
+        }
+        if (r) {
+            check(r, { 'Tài nguyên cache hợp lệ (200 hoặc 304)': (res) => [200, 304].includes(res.status) });
+        }
+      });
+    }
+  }
+  return Array.from(discoveredLinks);
+}
+
+// Hàm chuyển đổi URL tương đối (vd: /css/style.css) thành URL tuyệt đối.
+function resolveUrl(url, pageUrl) {
+  try {
+    // Sử dụng hàm dựng sẵn của URL để xử lý mọi trường hợp.
+    return (new URL(url, pageUrl)).href;
+  } catch (e) {
+    // Bỏ qua các URL không hợp lệ.
+    return '';
+  }
+}
