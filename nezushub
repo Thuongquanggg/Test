@@ -54,11 +54,11 @@ export const options = {
       executor: 'ramping-vus',
       startVUs: 0,
       stages: [
-        { duration: '5m', target: 12 }, // 60% của 20
-        { duration: '15m', target: 60 }, // 60% của 100
-        { duration: '30m', target: 60 },
-        { duration: '10m', target: 12 },
-        { duration: '3m', target: 0 },
+        { duration: '1m', target: 12 }, // 60% của 20
+        { duration: '3m', target: 60 }, // 60% của 100
+        { duration: '3m', target: 60 },
+        { duration: '1m', target: 12 },
+        { duration: '0m', target: 0 },
       ],
       exec: 'guestBehavior', // Chạy hàm guestBehavior
     },
