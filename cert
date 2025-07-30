@@ -93,7 +93,7 @@ export const options = {
         { duration: '5m', target: 500 }, // Tăng lên 100 người dùng.
 
         // Giai đoạn 3: Giờ cao điểm (30 phút) - Duy trì tải trọng cao để tìm lỗi rò rỉ.
-        { duration: '300m', target: 500 }, // Giữ ổn định ở 100 người dùng.
+        { duration: '6000m', target: 500 }, // Giữ ổn định ở 100 người dùng.
 
         // Giai đoạn 4: Hết giờ cao điểm (10 phút) - Traffic giảm dần.
         { duration: '10m', target: 20 },  // Giảm xuống còn 20 người dùng.
