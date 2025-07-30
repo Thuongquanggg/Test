@@ -1,179 +1,177 @@
 
-// 🅾️ Tên file: ghost (js)
-// Mã Kịch Bản Nâng Cấp: “Ghost in the Machine”
-// Mục tiêu: Vượt qua các lớp phòng thủ cơ bản của WAF, kiểm tra sâu logic ứng dụng.
+// 🅾️ Tên file: xenforo_attacker (js)
+// Kịch bản kiểm thử hiệu năng chuyên dụng cho diễn đàn XenForo (nezushub.vip).
+// Mô phỏng hành vi người dùng thực tế, bao gồm xử lý CSRF token.
 
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
 import { html } from 'k6/html';
 import { SharedArray } from 'k6/data';
 
-// --- CẤU HÌNH CHÍNH ---
-const BASE_URL = 'https://nezushub.vip'; // Thay bằng trang của bạn
+// --- CẤU HÌNH ---
+const BASE_URL = 'https://nezushub.vip';
 
-// --- BỂ DỮ LIỆU NÂNG CAO ---
-
-// 1. Dữ liệu người dùng để đăng nhập (đọc từ file JSON)
-// Mỗi VU sẽ lấy một user khác nhau để đăng nhập.
+// Dữ liệu người dùng để đăng nhập (TẠO FILE data/users.json)
+// Định dạng: [ { "username": "user1", "password": "password1" } ]
 const users = new SharedArray('users', function () {
-  // Giả sử bạn có file data/users.json với định dạng:
-  // [ { "username": "user1@test.com", "password": "password1" }, ... ]
-  // Để chạy, tạo thư mục 'data' và file 'users.json' bên trong.
-  // Nếu không có file, trả về mảng rỗng để không bị lỗi.
   try {
     return JSON.parse(open('./data/users.json'));
   } catch (e) {
+    console.error("Không tìm thấy file data/users.json, kịch bản đăng nhập sẽ không hoạt động.");
     return [];
   }
 });
 
-// 2. Bể User-Agents và Headers phức tạp hơn
-// Bao gồm cả các header Client-Hints (Sec-CH-UA) mà trình duyệt Chrome gửi.
-const BROWSER_PROFILES = [
-  {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-    'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
-    'Sec-CH-UA': '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-    'Sec-CH-UA-Mobile': '?0',
-    'Sec-CH-UA-Platform': '"Windows"',
-  },
-  {
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/115.0',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-    'Accept-Language': 'fr-FR,fr;q=0.8,en-US;q=0.5,en;q=0.3',
-  }
-];
-
-// --- CẤU HÌNH KỊCH BẢN TEST (SCENARIOS) ---
+// --- CẤU HÌNH KỊCH BẢN TEST ---
 export const options = {
   scenarios: {
-    // Kịch bản 1: Khách vãng lai, chỉ xem, không tương tác sâu.
-    // Chiếm 60% tổng số VUs.
-    guest_browsing: {
+    // 70% là khách, chỉ xem và tìm kiếm
+    guest_users: {
       executor: 'ramping-vus',
-      startVUs: 0,
       stages: [
-        { duration: '1m', target: 12 }, // 60% của 20
-        { duration: '3m', target: 60 }, // 60% của 100
-        { duration: '3m', target: 60 },
-        { duration: '1m', target: 12 },
-        { duration: '0m', target: 0 },
-      ],
-      exec: 'guestBehavior', // Chạy hàm guestBehavior
-    },
-    // Kịch bản 2: Người dùng đăng nhập, thực hiện các tác vụ quan trọng.
-    // Chiếm 40% tổng số VUs.
-    authenticated_user: {
-      executor: 'ramping-vus',
-      startVUs: 0,
-      stages: [
-        { duration: '5m', target: 8 }, // 40% của 20
-        { duration: '15m', target: 40 }, // 40% của 100
-        { duration: '30m', target: 40 },
-        { duration: '10m', target: 8 },
+        { duration: '2m', target: 15 },
+        { duration: '5m', target: 35 },
+        { duration: '10m', target: 35 },
         { duration: '3m', target: 0 },
       ],
-      exec: 'authenticatedBehavior', // Chạy hàm authenticatedBehavior
+      exec: 'guestScenario',
+    },
+    // 30% là thành viên, sẽ đăng nhập và tương tác
+    member_users: {
+      executor: 'ramping-vus',
+      startTime: '1m', // Bắt đầu sau khách 1 phút
+      stages: [
+        { duration: '2m', target: 5 },
+        { duration: '5m', target: 15 },
+        { duration: '10m', target: 15 },
+        { duration: '3m', target: 0 },
+      ],
+      exec: 'memberScenario',
     },
   },
   thresholds: {
-    'http_req_duration': ['p(95)<2500'],
-    'http_req_failed': ['rate<0.02'], // Yêu cầu khắt khe hơn
-    'checks': ['rate>0.98'],
+    'http_req_duration': ['p(95)<3500'],
+    'http_req_failed': ['rate<0.03'],
+    'checks': ['rate>0.97'],
   },
-  discardResponseBodies: false,
 };
 
-// --- CÁC HÀNH VI CHÍNH ---
-
-// Hành vi của khách vãng lai
-export function guestBehavior() {
-  const params = getBaseParams();
+// --- HÀNH VI CỦA KHÁCH (GUEST) ---
+export function guestScenario() {
   group('Hành vi: Khách vãng lai', function () {
-    // Tải trang chủ
-    const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
-    check(res, { 'Trang chủ OK': (r) => r.status === 200 });
-    
-    // Tìm kiếm một sản phẩm ngẫu nhiên
-    const searchTerms = ['apple', 'iphone 14', 'macbook pro', 'watch ultra'];
-    const term = searchTerms[Math.floor(Math.random() * searchTerms.length)];
-    
-    const searchRes = http.get(`${BASE_URL}/search?q=${encodeURIComponent(term)}`, { ...params, tags: { type: 'html' } });
-    check(searchRes, { 'Trang tìm kiếm OK': (r) => r.status === 200 });
-  });
-  sleep(Math.random() * 5 + 5); // 5-10 giây
-}
+    // 1. Tải trang chủ và lấy token
+    const res = http.get(BASE_URL);
+    check(res, { 'Trang chủ tải thành công': (r) => r.status === 200 });
+    const token = extractToken(res);
 
-// Hành vi của người dùng đã xác thực
-export function authenticatedBehavior() {
-  // Mỗi VU là một người dùng khác nhau, có cookie jar riêng.
-  const user = users[__VU % users.length];
-  if (!user) {
-    // Nếu không có user data, thì hoạt động như khách
-    guestBehavior();
-    return;
-  }
-  
-  const params = getBaseParams();
+    if (token) {
+      // 2. Mô phỏng tìm kiếm (hành động này gây áp lực lên DB)
+      const searchTerms = ['certificate', 'ipa library', 'tutorial', 'rules'];
+      const term = searchTerms[Math.floor(Math.random() * searchTerms.length)];
 
-  group('Hành vi: Người dùng xác thực', function () {
-    // Bước 1: Đăng nhập
-    const loggedIn = login(user.username, user.password, params);
+      const searchRes = http.post(
+        `${BASE_URL}/search/search`,
+        {
+          keywords: term,
+          _xfToken: token,
+        },
+        { tags: { name: 'Search' } }
+      );
+      check(searchRes, { 'Tìm kiếm thành công': (r) => r.status === 200 });
 
-    if (loggedIn) {
-      // Bước 2: Thực hiện hành động yêu cầu xác thực, ví dụ: xem trang cá nhân
-      const profileRes = http.get(`${BASE_URL}/my-account`, { ...params, tags: { type: 'html' } });
-      check(profileRes, { 'Xem trang cá nhân OK': (r) => r.status === 200 && r.body.includes(user.username) });
+      sleep(Math.random() * 3 + 2); // Nghĩ 2-5 giây
 
-      // Bước 3: Gọi một API nội bộ, ví dụ: lấy danh sách đơn hàng
-      const apiRes = http.get(`${BASE_URL}/api/v1/orders`, { ...params, tags: { type: 'api' } });
-      check(apiRes, { 'API lấy đơn hàng OK': (r) => r.status === 200 });
+      // 3. Xem một diễn đàn ngẫu nhiên
+      const doc = html.parse(res.body);
+      const forumLinks = [];
+      doc.find('h3.node-title a').each((_, el) => {
+        const href = el.attr('href');
+        if (href && href.startsWith('/forums/')) {
+          forumLinks.push(href);
+        }
+      });
+
+      if (forumLinks.length > 0) {
+        const randomForum = forumLinks[Math.floor(Math.random() * forumLinks.length)];
+        const forumRes = http.get(`${BASE_URL}${randomForum}`);
+        check(forumRes, { 'Xem diễn đàn thành công': (r) => r.status === 200 });
+      }
     }
   });
-
-  sleep(Math.random() * 8 + 7); // 7-15 giây, người dùng đăng nhập thường ở lại lâu hơn.
+  sleep(Math.random() * 5 + 5); // Nghỉ 5-10 giây trước khi lặp lại
 }
 
-// --- CÁC HÀM HỖ TRỢ ---
+// --- HÀNH VI CỦA THÀNH VIÊN (MEMBER) ---
+export function memberScenario() {
+  // Mỗi VU là một người dùng khác nhau, có cookie jar riêng.
+  const user = users[__VU % users.length];
+  if (!user) return; // Bỏ qua nếu không có dữ liệu user
 
-// Hàm đăng nhập, lấy CSRF token và trả về true/false
-function login(username, password, params) {
-  let csrfToken = '';
-  
-  // 1. Tải trang đăng nhập để lấy CSRF token từ form
-  const loginPageRes = http.get(`${BASE_URL}/login`, params);
-  if (loginPageRes.status === 200) {
-    const doc = html.parse(loginPageRes.body);
-    // Giả sử token nằm trong input có name="_csrf"
-    csrfToken = doc.find('input[name="_csrf"]').attr('value');
-  }
-  check(loginPageRes, { 'Tải trang đăng nhập OK': (r) => r.status === 200 && csrfToken !== '' });
+  group('Hành vi: Thành viên đăng nhập', function () {
+    // 1. Tải trang đăng nhập để lấy token
+    const loginPageRes = http.get(`${BASE_URL}/login/`);
+    const token = extractToken(loginPageRes, 'form[action="/login/login"]');
+    if (!token) {
+      console.error('Không lấy được token đăng nhập!');
+      return;
+    }
 
-  if (!csrfToken) return false;
+    // 2. Gửi request POST để đăng nhập
+    // k6 sẽ tự động quản lý cookie session
+    const loginRes = http.post(
+      `${BASE_URL}/login/login`,
+      {
+        login: user.username,
+        password: user.password,
+        remember: 1,
+        _xfToken: token,
+      },
+      { tags: { name: 'Login' } }
+    );
 
-  // 2. Gửi request POST để đăng nhập
-  // k6 sẽ tự động quản lý cookie session nhờ có cookie jar tích hợp.
-  const loginPayload = {
-    username: username,
-    password: password,
-    _csrf: csrfToken,
-  };
-  
-  const loginRes = http.post(`${BASE_URL}/login`, loginPayload, params);
-  const loggedInSuccess = check(loginRes, {
-    'Đăng nhập thành công (redirect)': (r) => r.status === 302, // Thường redirect sau khi login
-    'Cookie session được thiết lập': (r) => r.cookies.sessionid !== undefined,
+    // XenForo redirect (303) sau khi đăng nhập thành công
+    const isLoggedIn = check(loginRes, {
+      'Đăng nhập thành công (redirect)': (r) => r.status === 303,
+      'Cookie session được thiết lập': (r) => r.cookies.xf_session !== undefined,
+    });
+
+    if (isLoggedIn) {
+      // 3. Sau khi đăng nhập, tải lại trang chủ (trình duyệt sẽ làm vậy)
+      const homeRes = http.get(BASE_URL);
+      check(homeRes, { 'Tải trang chủ (đã đăng nhập) OK': (r) => r.status === 200 && r.body.includes('Log out') });
+      
+      // 4. Lấy token mới từ trang chủ để thực hiện hành động khác
+      const newToken = extractToken(homeRes);
+      
+      // 5. Gửi một tin nhắn vào Shoutbox (hành động AJAX)
+      if (newToken) {
+          const shoutRes = http.post(`${BASE_URL}/shoutbox/shout`, {
+              message: `k6 user ${__VU} says hello!`,
+              _xfToken: newToken
+          }, { tags: { name: 'Shoutbox_Post' }});
+          check(shoutRes, { 'Gửi tin shoutbox OK': (r) => r.status === 200 });
+      }
+    }
   });
-
-  return loggedInSuccess;
+  sleep(Math.random() * 10 + 8); // Thành viên thường ở lại lâu hơn
 }
 
-// Hàm tạo header, thông minh hơn
-function getBaseParams() {
-  // Chọn một profile trình duyệt ngẫu nhiên cho mỗi request
-  const profile = BROWSER_PROFILES[Math.floor(Math.random() * BROWSER_PROFILES.length)];
-  return {
-    headers: profile,
-  };
+// --- HÀM HỖ TRỢ ---
+
+// Hàm cốt lõi: Trích xuất _xfToken từ HTML response
+function extractToken(res, selector = 'input[name="_xfToken"]') {
+  if (!res || !res.body) {
+    return null;
+  }
+  const doc = html.parse(res.body);
+  const tokenElement = doc.find(selector);
+  if (tokenElement.length > 0) {
+    return tokenElement.first().attr('value');
+  }
+  // Fallback: Tìm trong thẻ meta
+  const metaToken = doc.find('meta[name="csrf"]').attr('content');
+  if (metaToken) {
+      return metaToken;
+  }
+  return null;
 }
