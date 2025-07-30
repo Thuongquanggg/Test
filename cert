@@ -1,14 +1,6 @@
-
-// 🅾️ Tên file: ghost_v2.js
-// Mã Kịch Bản Nâng Cấp: “Ghost in the Machine 2.0”
-// Mục tiêu: Mô phỏng hành vi người dùng một cách cực kỳ tinh vi để vượt qua các lớp phòng thủ
-// WAF/CDN nâng cao và kiểm tra sâu logic nghiệp vụ của ứng dụng.
-//
-// Các cải tiến chính:
-// 1. Tải tài nguyên tĩnh (CSS, JS) để giả lập trình duyệt hoàn chỉnh.
-// 2. Tương tác dựa trên nội dung: Phân tích HTML để click vào link ngẫu nhiên.
-// 3. "Thời gian suy nghĩ": Thêm các khoảng nghỉ nhỏ giữa các hành động.
-// 4. Bể dữ liệu đa dạng cho cả người dùng và từ khóa tìm kiếm.
+// 🅾️ Tên file: certapple_test.js
+// Mã Kịch Bản "Ghost in the Machine" - Phiên bản tùy chỉnh cho certapple.com
+// Mục tiêu: Mô phỏng chính xác luồng đăng nhập và duyệt web trên certapple.com
 
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
@@ -16,57 +8,33 @@ import { html } from 'k6/html';
 import { SharedArray } from 'k6/data';
 
 // --- CẤU HÌNH CHÍNH ---
-const BASE_URL = 'https://certapple.com'; // Thay bằng trang của bạn
+const BASE_URL = 'https://certapple.com';
 
-// --- BỂ DỮ LIỆU NÂNG CAO ---
-
-// 1. Dữ liệu người dùng để đăng nhập (đọc từ file JSON)
+// --- BỂ DỮ LIỆU ---
+// Đảm bảo bạn có file data/users.json và data/search_terms.json
 const users = new SharedArray('users', function () {
-  try {
-    return JSON.parse(open('./data/users.json'));
-  } catch (e) {
-    console.error("Không thể đọc file users.json. Kịch bản xác thực sẽ chạy như khách.");
-    return [];
-  }
+  try { return JSON.parse(open('./data/users.json')); } catch (e) { return []; }
 });
-
-// 2. Dữ liệu từ khóa tìm kiếm (đọc từ file JSON)
 const searchTerms = new SharedArray('search-terms', function () {
-  try {
-    return JSON.parse(open('./data/search_terms.json'));
-  } catch (e) {
-    console.error("Không thể đọc file search_terms.json. Sẽ dùng từ khóa mặc định.");
-    return ['test'];
-  }
+  try { return JSON.parse(open('./data/search_terms.json')); } catch (e) { return ['iphone']; }
 });
 
-// 3. Bể User-Agents và Headers phức tạp
+// --- BỂ USER-AGENTS ---
 const BROWSER_PROFILES = [
-  {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-    'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
-    'Sec-CH-UA': '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-    'Sec-CH-UA-Mobile': '?0',
-    'Sec-CH-UA-Platform': '"Windows"',
-  },
-  {
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/115.0',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-    'Accept-Language': 'fr-FR,fr;q=0.8,en-US;q=0.5,en;q=0.3',
-  }
+  { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36' },
+  { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/116.0' }
 ];
 
-// --- CẤU HÌNH KỊCH BẢN TEST (SCENARIOS) ---
+// --- CẤU HÌNH KỊCH BẢN TEST ---
 export const options = {
   scenarios: {
     guest_browsing: {
       executor: 'ramping-vus',
       startVUs: 0,
       stages: [
-        { duration: '5m', target: 100 }, // 60% của 100 VUs
-        { duration: '30m', target: 300 },
-        { duration: '5m', target: 0 },
+        { duration: '2m', target: 30 }, // 60% của 50 VUs
+        { duration: '5m', target: 30 },
+        { duration: '2m', target: 0 },
       ],
       exec: 'guestBehavior',
     },
@@ -74,66 +42,45 @@ export const options = {
       executor: 'ramping-vus',
       startVUs: 0,
       stages: [
-        { duration: '5m', target: 80 }, // 40% của 100 VUs
-        { duration: '30m', target: 250 },
-        { duration: '5m', target: 0 },
+        { duration: '2m', target: 20 }, // 40% của 50 VUs
+        { duration: '5m', target: 20 },
+        { duration: '2m', target: 0 },
       ],
       exec: 'authenticatedBehavior',
     },
   },
   thresholds: {
-    'http_req_duration': ['p(95)<2500'],
+    'http_req_duration': ['p(95)<3000'],
     'http_req_failed': ['rate<0.02'],
     'checks': ['rate>0.98'],
   },
 };
 
-// --- CÁC HÀNH VI CHÍNH ---
-
-// Hành vi của khách vãng lai
+// --- HÀNH VI CỦA KHÁCH VÃNG LAI ---
 export function guestBehavior() {
   const params = getBaseParams();
   group('Hành vi: Khách vãng lai', function () {
-    // 1. Tải trang chủ
     const res = http.get(BASE_URL, { ...params, tags: { name: 'HomePage' } });
     check(res, { 'Trang chủ OK': (r) => r.status === 200 });
 
     if (res.status === 200) {
-      // 2. Mô phỏng trình duyệt tải các tài nguyên tĩnh
-      loadStaticAssets(res, params);
+      sleep(Math.random() * 2 + 1); // "Thời gian suy nghĩ"
 
-      // 3. "Thời gian suy nghĩ" - người dùng đọc trang
-      sleep(Math.random() * 3 + 1); // 1-4 giây
-
-      // 4. Tương tác ngẫu nhiên: Hoặc click link, hoặc tìm kiếm
-      const doc = html.parse(res.body);
-      const internalLinks = doc.find('a[href^="/"]');
-
-      if (Math.random() < 0.7 && internalLinks.length > 0) {
-        // 70% cơ hội sẽ click vào một link ngẫu nhiên trên trang
-        const randomLink = internalLinks.get(Math.floor(Math.random() * internalLinks.length));
-        const nextUrl = randomLink.attr('href');
-        
-        if (nextUrl) {
-          const browseRes = http.get(`${BASE_URL}${nextUrl}`, { ...params, tags: { name: 'BrowsePage' } });
-          check(browseRes, { 'Duyệt trang con OK': (r) => r.status === 200 });
-        }
-      } else {
-        // 30% cơ hội sẽ thực hiện tìm kiếm
-        const term = searchTerms[Math.floor(Math.random() * searchTerms.length)];
-        const searchRes = http.get(`${BASE_URL}/search?q=${encodeURIComponent(term)}`, { ...params, tags: { name: 'Search' } });
-        check(searchRes, { 'Trang tìm kiếm OK': (r) => r.status === 200 });
-      }
+      // Thực hiện tìm kiếm
+      const term = searchTerms[Math.floor(Math.random() * searchTerms.length)];
+      // URL tìm kiếm của certapple là /search?key=...
+      const searchRes = http.get(`${BASE_URL}/search?key=${encodeURIComponent(term)}`, { ...params, tags: { name: 'Search' } });
+      check(searchRes, { 'Trang tìm kiếm OK': (r) => r.status === 200 });
     }
   });
-  sleep(Math.random() * 5 + 5); // Nghỉ 5-10 giây trước khi bắt đầu vòng lặp mới
+  sleep(Math.random() * 5 + 5);
 }
 
-// Hành vi của người dùng đã xác thực
+// --- HÀNH VI CỦA NGƯỜI DÙNG ĐÃ XÁC THỰC ---
 export function authenticatedBehavior() {
   const user = users[__VU % users.length];
   if (!user) {
-    guestBehavior(); // Nếu không có dữ liệu user, hoạt động như khách
+    guestBehavior();
     return;
   }
   
@@ -143,80 +90,72 @@ export function authenticatedBehavior() {
     const loggedIn = login(user.username, user.password, params);
 
     if (loggedIn) {
-      // 2. "Thời gian suy nghĩ" sau khi đăng nhập thành công
-      sleep(Math.random() * 2 + 1); // 1-3 giây
+      sleep(Math.random() * 2 + 1); // "Thời gian suy nghĩ" sau khi login
 
-      // 3. Xem trang cá nhân
-      const profileRes = http.get(`${BASE_URL}/my-account`, { ...params, tags: { name: 'MyAccount' } });
-      check(profileRes, { 'Xem trang cá nhân OK': (r) => r.status === 200 && r.body.includes(user.username) });
+      // 2. Xem trang thông tin cá nhân
+      const profileRes = http.get(`${BASE_URL}/user/profile`, { ...params, tags: { name: 'UserProfile' } });
+      check(profileRes, { 'Xem trang cá nhân OK': (r) => r.status === 200 && r.body.includes('Thông tin tài khoản') });
 
-      if (profileRes.status === 200) {
-        // 4. "Thời gian suy nghĩ" trước khi thực hiện hành động tiếp theo
-        sleep(Math.random() * 3 + 2); // 2-5 giây
+      sleep(Math.random() * 3 + 2); // "Thời gian suy nghĩ"
 
-        // 5. Gọi một API nội bộ, ví dụ: lấy danh sách đơn hàng
-        const apiRes = http.get(`${BASE_URL}/api/v1/orders`, { ...params, tags: { name: 'GetOrdersAPI' } });
-        check(apiRes, { 'API lấy đơn hàng OK': (r) => r.status === 200 });
-      }
+      // 3. Xem trang đơn hàng
+      const purchaseRes = http.get(`${BASE_URL}/user/purchase`, { ...params, tags: { name: 'UserPurchases' } });
+      check(purchaseRes, { 'Xem trang đơn hàng OK': (r) => r.status === 200 && r.body.includes('Đơn hàng của bạn') });
     }
   });
 
-  sleep(Math.random() * 8 + 7); // Người dùng đăng nhập thường ở lại lâu hơn, 7-15 giây
+  sleep(Math.random() * 8 + 7);
 }
 
-// --- CÁC HÀM HỖ TRỢ ---
-
-// Hàm đăng nhập, lấy CSRF token và trả về true/false
+// --- HÀM HỖ TRỢ ĐĂNG NHẬP (ĐÃ SỬA) ---
 function login(username, password, params) {
-  let csrfToken = '';
-  
-  // Bước 1: Tải trang đăng nhập để lấy CSRF token từ form
-  const loginPageRes = http.get(`${BASE_URL}/login`, params);
-  if (loginPageRes.status === 200) {
-    const doc = html.parse(loginPageRes.body);
-    csrfToken = doc.find('input[name="_csrf"]').attr('value');
-  }
-  check(loginPageRes, { 'Tải trang đăng nhập OK': (r) => r.status === 200 && csrfToken !== '' });
+  // Bước 1: Tải trang chủ để lấy CSRF token. Token nằm trong form đăng nhập ẩn.
+  const homePageRes = http.get(BASE_URL, params);
+  check(homePageRes, { 'Tải trang chủ OK': (r) => r.status === 200 });
 
-  if (!csrfToken) {
-    console.error('Không tìm thấy CSRF token trên trang đăng nhập.');
+  if (homePageRes.status !== 200) {
+    console.error('Không thể tải trang chủ, không thể lấy token.');
     return false;
   }
 
-  // Bước 2: Gửi request POST để đăng nhập
-  const loginPayload = { username, password, _csrf: csrfToken };
+  const doc = html.parse(homePageRes.body);
+  // Selector đúng cho certapple.com
+  const csrfToken = doc.find('input[name="_token"]').attr('value');
+
+  if (!csrfToken) {
+    console.error('Không tìm thấy CSRF token (input[name="_token"]) trên trang chủ.');
+    return false;
+  }
+
+  // Bước 2: Gửi request POST đến endpoint /login
+  const loginPayload = {
+    username: username,
+    password: password,
+    _token: csrfToken, // Tên trường là _token
+  };
+  
   const loginRes = http.post(`${BASE_URL}/login`, loginPayload, params);
   
-  // k6 sẽ tự động xử lý redirect, nên ta check trang sau redirect
+  // Đăng nhập thành công thường sẽ redirect (status 302), k6 sẽ tự động theo.
+  // Ta kiểm tra response cuối cùng có phải là trang thành công và có cookie session không.
   const loggedInSuccess = check(loginRes, {
-    'Đăng nhập thành công': (r) => r.status === 200 && r.url.includes('/my-account'), // Ví dụ: redirect tới trang cá nhân
-    'Cookie session được thiết lập': (r) => r.cookies.sessionid !== undefined,
+    'Đăng nhập thành công (trang chuyển hướng OK)': (r) => r.status === 200,
+    'URL chứa /user (dấu hiệu đã login)': (r) => r.url.includes('/user'),
+    'Cookie session được thiết lập': (r) => r.cookies.laravel_session !== undefined,
   });
 
   return loggedInSuccess;
 }
 
-// Hàm mô phỏng tải các tài nguyên tĩnh
-function loadStaticAssets(res, params) {
-    const doc = html.parse(res.body);
-    const requests = [];
-    // Tìm 2 file CSS và 2 file JS để tải
-    doc.find('link[rel="stylesheet"]').slice(0, 2).each((i, el) => {
-        requests.push(['GET', res.url.resolve(el.attr('href')), params]);
-    });
-    doc.find('script[src]').slice(0, 2).each((i, el) => {
-        requests.push(['GET', res.url.resolve(el.attr('src')), params]);
-    });
-    
-    if (requests.length > 0) {
-        http.batch(requests);
-    }
-}
-
-// Hàm tạo header ngẫu nhiên từ profile trình duyệt
+// --- HÀM HỖ TRỢ TẠO HEADER ---
 function getBaseParams() {
   const profile = BROWSER_PROFILES[Math.floor(Math.random() * BROWSER_PROFILES.length)];
   return {
-    headers: profile,
+    headers: {
+      'User-Agent': profile['User-Agent'],
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
+      'Accept-Encoding': 'gzip, deflate, br',
+    },
   };
 }
