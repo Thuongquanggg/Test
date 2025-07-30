@@ -2671,16 +2671,10 @@ export const options = {
       executor: 'ramping-vus',
       startTime: '0s',
       stages: [
-        // Giai đoạn 1: Sáng sớm (5 phút) - Rất ít người dùng, khởi động hệ thống.
-        { duration: '5m', target: 200 },   // Tăng từ từ lên 20 người dùng.
-
-        // Giai đoạn 2: Bắt đầu giờ làm việc (15 phút) - Traffic tăng dần.
-        { duration: '5m', target: 500 }, // Tăng lên 100 người dùng.
-
-        // Giai đoạn 3: Giờ cao điểm (30 phút) - Duy trì tải trọng cao để tìm lỗi rò rỉ.
-        { duration: '6000m', target: 500 }, // Giữ ổn định ở 100 người dùng.
-
-        // Giai đoạn 4: Hết giờ cao điểm (10 phút) - Traffic giảm dần.
+       
+        { duration: '2m', target: 1000 },   // Tăng từ từ lên 20 người dùng.
+        { duration: '5m', target: 1000 }, // Tăng lên 100 người dùng.
+        { duration: '6000m', target: 1000 }, // Giữ ổn định ở 100 người dùng.
         { duration: '10m', target: 20 },  // Giảm xuống còn 20 người dùng.
 
         // Giai đoạn 5: Cuối ngày (3 phút) - Giảm tải hoàn toàn.
