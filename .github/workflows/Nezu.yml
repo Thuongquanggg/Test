@@ -1,25 +1,19 @@
-# 🅾️.github/workflows/Nesu.yml
+name: k6 Browser Test
 
-name: 🚀 Kiểm Tra Web Nesu
-
-on:
-  # Cho phép chạy thủ công từ tab Actions trên GitHub
-  workflow_dispatch:
-  # Chạy tự động vào 0h sáng Chủ Nhật hàng tuần (giờ UTC)
-  schedule:
-    - cron: '0 0 * * 0'
+on: [push]
 
 jobs:
-  k6_load_test:
-    name: Chạy k6 Load Test
+  k6-test:
     runs-on: ubuntu-latest
-
     steps:
-      - name:  checkout
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Chạy k6 local test
+      # Thay đổi quan trọng: Sử dụng ghcr.io/grafana/xk6-browser
+      - name: Run k6 browser test
         uses: k6io/k6-action@v0.3.1
         with:
-          # Chỉ định file kịch bản k6 để chạy
-          filename: nezushub
+          # Sử dụng image có cài sẵn xk6-browser
+          image: ghcr.io/grafana/xk6-browser:latest
+          # Tên file kịch bản của bạn
+          filename: nezushub-browser.js
