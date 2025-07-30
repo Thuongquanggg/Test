@@ -1,6 +1,8 @@
-// 🅾️ Tên file: cert (js)
+
+// 🅾️ Tên file: cert_with_proxy.js
 // Kịch bản kiểm thử sức bền, mô phỏng chu kỳ hoạt động dài (hơn 1 giờ).
 // Tích hợp các kỹ thuật tấn công đa chiều và hành vi người dùng phức tạp.
+// *** ĐÃ TÍCH HỢP BỂ PROXY ***
 
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
@@ -8,6 +10,59 @@ import { html } from 'k6/html';
 
 // --- CẤU HÌNH CHÍNH ---
 const BASE_URL = 'https://certapple.com';
+
+// --- BỂ DỮ LIỆU PROXY ---
+// LƯU Ý QUAN TRỌNG: Danh sách proxy miễn phí dưới đây chỉ mang tính VÍ DỤ.
+// Chúng có thể ngừng hoạt động bất cứ lúc nào. Bạn cần tự tìm và cập nhật
+// danh sách này ngay trước khi chạy kiểm thử từ các nguồn công khai.
+const PROXY_POOL = [
+  'http://45.142.28.23:8085',
+  'http://176.9.75.8:3128',
+  'http://185.199.229.156:7492',
+  'http://193.124.36.194:8000',
+  'http://194.5.158.11:80',
+  'http://185.221.218.42:8080',
+  'http://195.154.255.118:8080',
+  'http://116.203.133.111:3128',
+  'http://194.233.69.88:443',
+  'http://103.153.224.250:8080',
+   'http://103.170.147.2:8080', 
+'http://103.152.112.182:80',
+ 'http://165.22.49.82:3128',
+  'http://103.179.45.102:80', 'http://103.161.137.94:8080', 'http://103.88.163.22:8080',
+  'http://103.167.183.185:8080', 'http://103.159.198.246:8080', 'http://103.250.150.1:8080',
+  'http://103.178.235.132:80', 'http://103.170.147.10:8080', 'http://103.177.17.14:8080',
+  'http://103.178.235.133:80', 'http://103.178.235.134:80', 'http://103.178.235.135:80',
+  'http://103.178.235.136:80', 'http://103.178.235.137:80', 'http://103.178.235.138:80',
+  'http://103.178.235.139:80', 'http://103.178.235.140:80', 'http://103.178.235.141:80',
+  'http://103.178.235.142:80', 'http://103.178.235.143:80', 'http://103.178.235.144:80',
+  'http://103.178.235.145:80', 'http://103.178.235.146:80', 'http://103.178.235.147:80',
+  'http://103.178.235.148:80', 'http://103.178.235.149:80', 'http://103.178.235.150:80',
+  'http://103.178.235.151:80', 'http://103.178.235.152:80', 'http://103.178.235.153:80',
+  'http://103.178.235.154:80', 'http://103.178.235.155:80', 'http://103.178.235.156:80',
+  'http://103.178.235.157:80', 'http://103.178.235.158:80', 'http://103.178.235.159:80',
+  'http://103.178.235.160:80', 'http://103.178.235.161:80', 'http://103.178.235.162:80',
+  'http://103.178.235.163:80', 'http://103.178.235.164:80', 'http://103.178.235.165:80',
+  'http://103.178.235.166:80', 'http://103.178.235.167:80', 'http://103.178.235.168:80',
+  'http://103.178.235.169:80', 'http://103.178.235.170:80', 'http://103.178.235.171:80',
+  'http://103.178.235.172:80', 'http://103.178.235.173:80', 'http://103.178.235.174:80',
+  'http://103.178.235.175:80', 'http://103.178.235.176:80', 'http://103.178.235.177:80',
+  'http://103.178.235.178:80', 'http://103.178.235.179:80', 'http://103.178.235.180:80',
+  'http://103.178.235.181:80', 'http://103.178.235.182:80', 'http://103.178.235.183:80',
+  'http://103.178.235.184:80', 'http://103.178.235.185:80', 'http://103.178.235.186:80',
+  'http://103.178.235.187:80', 'http://103.178.235.188:80', 'http://103.178.235.189:80',
+  'http://103.178.235.190:80', 'http://103.178.235.191:80', 'http://103.178.235.192:80',
+  'http://103.178.235.193:80', 'http://103.178.235.194:80', 'http://103.178.235.195:80',
+  'http://103.178.235.196:80', 'http://103.178.235.197:80', 'http://103.178.235.198:80',
+  'http://103.178.235.199:80', 'http://103.178.235.200:80', 'http://103.178.235.201:80',
+  'http://103.178.235.202:80', 'http://103.178.235.203:80', 'http://103.178.235.204:80',
+  'http://103.178.235.205:80', 'http://103.178.235.206:80', 'http://103.178.235.207:80',
+  'http://103.178.235.208:80', 'http://103.178.235.209:80', 'http://103.178.235.210:80',
+  'http://103.178.235.211:80', 'http://103.178.235.212:80', 'http://103.178.235.213:80',
+  'http://103.178.235.214:80', 'http://103.178.235.215:80', 'http://103.178.235.216:80',
+  'http://103.178.235.217:80', 'http://103.178.235.218:80', 'http://103.178.235.219:80',
+  'http://103.178.235.220:80', 'http://103.178.235.221:80', 'http://103.178.235.222:80'
+];
 
 // --- BỂ DỮ LIỆU USER AGENTS ---
 // Giúp mỗi request trông như đến từ một trình duyệt/thiết bị khác nhau.
@@ -32,19 +87,19 @@ export const options = {
       startTime: '0s',
       stages: [
         // Giai đoạn 1: Sáng sớm (5 phút) - Rất ít người dùng, khởi động hệ thống.
-        { duration: '3m', target: 2000 },   // Tăng từ từ lên 20 người dùng.
+        { duration: '5m', target: 200 },   // Tăng từ từ lên 20 người dùng.
 
         // Giai đoạn 2: Bắt đầu giờ làm việc (15 phút) - Traffic tăng dần.
-        { duration: '5m', target: 2000 }, // Tăng lên 100 người dùng.
+        { duration: '5m', target: 500 }, // Tăng lên 100 người dùng.
 
         // Giai đoạn 3: Giờ cao điểm (30 phút) - Duy trì tải trọng cao để tìm lỗi rò rỉ.
-        { duration: '10m', target: 2000 }, // Giữ ổn định ở 100 người dùng.
+        { duration: '300m', target: 500 }, // Giữ ổn định ở 100 người dùng.
 
         // Giai đoạn 4: Hết giờ cao điểm (10 phút) - Traffic giảm dần.
-        { duration: '30m', target: 2000 },  // Giảm xuống còn 20 người dùng.
+        { duration: '10m', target: 20 },  // Giảm xuống còn 20 người dùng.
 
         // Giai đoạn 5: Cuối ngày (3 phút) - Giảm tải hoàn toàn.
-        { duration: '600m', target: 2000 },    // Giảm về 0.
+        { duration: '3m', target: 0 },    // Giảm về 0.
       ],
       // Cho các VUs có nhiều thời gian hơn để hoàn thành vòng lặp cuối cùng,
       // đặc biệt quan trọng trong các bài test dài.
@@ -54,10 +109,10 @@ export const options = {
 
   // Ngưỡng chịu tải: Test sẽ thất bại nếu các điều kiện này bị vi phạm.
   thresholds: {
-    'http_req_duration{type:html}': ['p(95)<3000'], // 95% request HTML phải tải dưới 3s.
-    'http_req_duration{type:asset}': ['p(95)<1500'],// 95% request tài nguyên tĩnh phải tải dưới 1.5s.
-    'http_req_failed': ['rate<0.05'],               // Tỷ lệ request lỗi chung phải dưới 5%.
-    'checks': ['rate>0.95'],                        // Tỷ lệ các bước kiểm tra thành công phải trên 95%.
+    'http_req_duration{type:html}': ['p(95)<5000'], // Tăng ngưỡng vì proxy rất chậm
+    'http_req_duration{type:asset}': ['p(95)<3000'],// Tăng ngưỡng vì proxy rất chậm
+    'http_req_failed': ['rate<0.30'],               // Tăng ngưỡng lỗi vì proxy thường xuyên thất bại
+    'checks': ['rate>0.70'],                        // Giảm ngưỡng check thành công vì proxy
   },
   
   // Rất quan trọng: Phải tắt discardResponseBodies để có thể dùng html.parse().
@@ -91,17 +146,14 @@ function firstTimeVisitor() {
     const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
     const isStatusOk = check(res, { 'Trang chủ OK': (r) => r && r.status === 200 });
 
-    // Chỉ tải tài nguyên nếu trang chính tải thành công.
     if (isStatusOk) {
       loadPageAssets(res, params, null);
     }
   });
-  // "Think time": Người dùng dừng lại suy nghĩ trước khi rời đi.
   sleep(Math.random() * 4 + 3); // 3-7 giây.
 }
 
 // Hành vi 2: Khách quay lại, sử dụng cache.
-// Biến cache này là duy nhất cho mỗi VU, mô phỏng cache của một trình duyệt.
 const vuCache = new Map();
 function returningVisitor() {
   const params = getBaseParams();
@@ -109,7 +161,6 @@ function returningVisitor() {
     const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
     const isStatusOk = check(res, { 'Trang chủ OK': (r) => r && r.status === 200 });
 
-    // Chỉ tải tài nguyên nếu trang chính tải thành công.
     if (isStatusOk) {
       loadPageAssets(res, params, vuCache);
     }
@@ -118,22 +169,18 @@ function returningVisitor() {
 }
 
 // Hành vi 3: Người dùng "đi dạo", click lung tung.
-// Biến này được chia sẻ giữa các VUs để chúng cùng nhau khám phá trang web.
 const internalLinks = new Set([BASE_URL]);
 function chaoticBrowser() {
   const params = getBaseParams();
   group('Hành vi: Người dùng đi dạo', function () {
-    // Chọn một link ngẫu nhiên từ những link đã khám phá được.
     const linksArray = Array.from(internalLinks);
     const currentUrl = linksArray[Math.floor(Math.random() * linksArray.length)];
 
     const res = http.get(currentUrl, { ...params, tags: { type: 'html' } });
     const isStatusOk = check(res, { 'Tải trang OK': (r) => r && r.status === 200 });
 
-    // Chỉ tải tài nguyên và tìm link mới NẾU trang hiện tại tải thành công.
     if (isStatusOk) {
       const discoveredLinks = loadPageAssets(res, params, null);
-      // Thêm các link mới tìm thấy vào "bộ nhớ chung".
       discoveredLinks.forEach(link => internalLinks.add(link));
     }
   });
@@ -142,9 +189,17 @@ function chaoticBrowser() {
 
 // --- CÁC HÀM HỖ TRỢ ---
 
+// *** HÀM ĐÃ ĐƯỢC SỬA ĐỔI ĐỂ SỬ DỤNG PROXY ***
 // Hàm tạo các header cơ bản cho một request, giả lập trình duyệt.
 function getBaseParams() {
+  // Chọn một proxy cho VU này dựa trên ID của nó.
+  // Phép toán modulo (%) đảm bảo chúng ta luôn chọn một proxy hợp lệ trong bể.
+  const proxyUrl = PROXY_POOL[__VU % PROXY_POOL.length];
+
   return {
+    // Thêm tùy chọn proxy vào đây. Mọi request sử dụng params này sẽ đi qua proxy.
+    proxy: proxyUrl,
+    
     headers: {
       'User-Agent': USER_AGENTS[__VU % USER_AGENTS.length],
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -158,7 +213,6 @@ function getBaseParams() {
 function loadPageAssets(res, params, cache) {
   const discoveredLinks = new Set();
   
-  // Lập trình phòng thủ: Nếu request lỗi, thoát ngay.
   if (!res || !res.body) {
     return Array.from(discoveredLinks);
   }
@@ -166,13 +220,11 @@ function loadPageAssets(res, params, cache) {
   const doc = html.parse(res.body);
   const assetUrls = new Set();
 
-  // Tìm tất cả các tài nguyên có thể tải được trong HTML.
   doc.find('link[href], script[src], img[src], video[src], audio[src], source[src]').each((_, el) => {
     const url = el.attr('href') || el.attr('src');
     if (url) assetUrls.add(resolveUrl(url, res.url));
   });
 
-  // Tìm tài nguyên bên trong thẻ <style> hoặc file .css.
   const contentType = res.headers['Content-Type'];
   const isCssResponse = contentType && contentType.includes('css');
   const cssBody = doc.find('style').text() + (isCssResponse ? res.body : '');
@@ -185,22 +237,20 @@ function loadPageAssets(res, params, cache) {
       }
   });
 
-  // Tìm các link <a> để cho "Người dùng đi dạo".
   doc.find('a[href]').each((_, el) => {
     const link = el.attr('href');
     if(link) {
         const resolvedLink = resolveUrl(link, res.url);
-        // Chỉ lấy link nội bộ, không phải file và không phải link neo.
         if (resolvedLink && resolvedLink.startsWith(BASE_URL) && !resolvedLink.match(/\.(jpg|jpeg|png|gif|css|js|pdf)$/i) && !resolvedLink.includes('#')) {
           discoveredLinks.add(resolvedLink);
         }
     }
   });
 
-  // Tạo một batch request để tải tất cả tài nguyên song song.
   const requests = [];
   assetUrls.forEach(url => {
     if(url) {
+        // Sử dụng lại params (đã chứa proxy) cho các request tài nguyên.
         const assetParams = { ...params, tags: { type: 'asset' } };
         if (cache && cache.has(url)) {
           assetParams.headers['If-None-Match'] = cache.get(url);
@@ -211,7 +261,6 @@ function loadPageAssets(res, params, cache) {
 
   if (requests.length > 0) {
     const responses = http.batch(requests);
-    // Nếu là khách quay lại, cập nhật cache.
     if (cache) {
       responses.forEach((r, i) => {
         const url = requests[i][1];
@@ -230,10 +279,8 @@ function loadPageAssets(res, params, cache) {
 // Hàm chuyển đổi URL tương đối (vd: /css/style.css) thành URL tuyệt đối.
 function resolveUrl(url, pageUrl) {
   try {
-    // Sử dụng hàm dựng sẵn của URL để xử lý mọi trường hợp.
     return (new URL(url, pageUrl)).href;
   } catch (e) {
-    // Bỏ qua các URL không hợp lệ.
     return '';
   }
 }
