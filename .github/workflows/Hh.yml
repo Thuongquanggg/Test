@@ -8,13 +8,12 @@ jobs:
   k6-debug-test:
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Checkout code từ repository của bạn
+      # Step 1: Lấy mã nguồn từ repository của bạn
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Step 2: Cài đặt k6 thủ công
-      # Action grafana/k6-action cũng làm việc này, nhưng để chạy lệnh shell tùy chỉnh,
-      # chúng ta cần tự cài đặt để có toàn quyền kiểm soát.
+      # Step 2: Cài đặt k6 lên máy ảo runner
+      # Máy ảo của GitHub không có sẵn k6, nên chúng ta cần cài nó.
       - name: Install k6
         run: |
           sudo gpg -k
@@ -23,20 +22,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install k6
 
-      # Step 3: Chạy k6 với chế độ debug và lưu output vào file
-      # Bước này giờ chỉ dùng 'run' và không có 'uses'
+      # Step 3: Chạy k6 và lưu lại toàn bộ log
+      # Bước này chỉ dùng 'run' để thực thi lệnh shell.
       - name: Run k6 and capture debug log
-        # 'continue-on-error: true' đảm bảo workflow vẫn tiếp tục để upload file log
-        # ngay cả khi k6 báo lỗi (ví dụ: test thất bại).
+        # continue-on-error: true sẽ đảm bảo bước upload log vẫn chạy
+        # ngay cả khi k6 báo lỗi (test failed).
         continue-on-error: true
         run: |
+          # Lệnh này chạy k6 với chế độ debug và lưu tất cả output (cả lỗi)
+          # vào file k6-debug-output.log
           k6 run --vus 1 --iterations 1 --http-debug="full" certapple_test.js > k6-debug-output.log 2>&1
           
-      # Step 4: Upload file log debug thành một "artifact"
+      # Step 4: Upload file log đã tạo thành một "artifact"
+      # Artifact là file được lưu lại sau khi workflow chạy xong để bạn tải về.
       - name: Upload k6 debug log
         uses: actions/upload-artifact@v3
         with:
-          # Tên của artifact khi bạn tải về
           name: k6-debug-log
-          # Đường dẫn đến file log vừa tạo
           path: k6-debug-output.log
