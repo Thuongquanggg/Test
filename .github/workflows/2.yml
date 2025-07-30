@@ -1,6 +1,6 @@
 # 🅾️.github/workflows/Cert.yml
 
-name: 🚀 Kiểm Tra Web Cert
+name: 🚀 Kiểm Tra Web Cert 2
 
 on:
   # Cho phép chạy thủ công từ tab Actions trên GitHub
