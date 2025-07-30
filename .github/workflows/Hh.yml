@@ -12,27 +12,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Step 2: Chạy k6 với chế độ debug và lưu output vào file
-      # Đây là bước quan trọng nhất
-      - name: Run k6 in debug mode
-        uses: grafana/k6-action@v0.2.0
-        with:
-          # Tên file kịch bản của bạn
-          filename: certapple_test.js
-          # Thêm cờ để chạy debug
-          # --vus 1 --iterations 1: Chỉ chạy 1 lần để lấy log, không cần load test
-          # --http-debug="full": In ra toàn bộ request và response
-          # > k6-debug-output.log: Chuyển hướng toàn bộ output vào một file log
-          flags: '--vus 1 --iterations 1 --http-debug="full"'
-        # Thêm 'continue-on-error' để workflow không bị dừng ngay cả khi k6 báo lỗi
-        # Điều này đảm bảo chúng ta luôn có file log để xem
+      # Step 2: Cài đặt k6 thủ công
+      # Action grafana/k6-action cũng làm việc này, nhưng để chạy lệnh shell tùy chỉnh,
+      # chúng ta cần tự cài đặt để có toàn quyền kiểm soát.
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      # Step 3: Chạy k6 với chế độ debug và lưu output vào file
+      # Bước này giờ chỉ dùng 'run' và không có 'uses'
+      - name: Run k6 and capture debug log
+        # 'continue-on-error: true' đảm bảo workflow vẫn tiếp tục để upload file log
+        # ngay cả khi k6 báo lỗi (ví dụ: test thất bại).
         continue-on-error: true
-        # Chạy lệnh shell để lưu output
         run: |
           k6 run --vus 1 --iterations 1 --http-debug="full" certapple_test.js > k6-debug-output.log 2>&1
           
-      # Step 3: Upload file log debug thành một "artifact"
-      # Artifact là file được lưu trữ lại sau khi workflow chạy xong
+      # Step 4: Upload file log debug thành một "artifact"
       - name: Upload k6 debug log
         uses: actions/upload-artifact@v3
         with:
