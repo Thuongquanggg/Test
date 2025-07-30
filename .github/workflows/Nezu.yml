@@ -9,11 +9,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Thay đổi quan trọng: Sử dụng ghcr.io/grafana/xk6-browser
+      # === THAY ĐỔI QUAN TRỌNG: Chạy Docker command trực tiếp ===
       - name: Run k6 browser test
-        uses: k6io/k6-action@v0.3.1
-        with:
-          # Sử dụng image có cài sẵn xk6-browser
-          image: ghcr.io/grafana/xk6-browser:latest
-          # Tên file kịch bản của bạn
-          filename: nezushub-browser.js
+        run: |
+          docker run --rm -i \
+            -v ${{ github.workspace }}:/github/workspace \
+            -w /github/workspace \
+            ghcr.io/grafana/xk6-browser:latest \
+            run nezushub-browser.js
