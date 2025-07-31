@@ -1,0 +1,25 @@
+# 🅾️.github/workflows/Cert.yml
+
+name: 🚀 Kiểm Tra Web Cert.khoindvn.io.vn
+
+on:
+  # Cho phép chạy thủ công từ tab Actions trên GitHub
+  workflow_dispatch:
+  # Chạy tự động vào 0h sáng Chủ Nhật hàng tuần (giờ UTC)
+  schedule:
+    - cron: '0 0 * * 0'
+
+jobs:
+  k6_load_test:
+    name: Chạy k6 Load Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name:  checkout
+        uses: actions/checkout@v3
+
+      - name: Chạy k6 local test
+        uses: k6io/k6-action@v0.3.1
+        with:
+          # Chỉ định file kịch bản k6 để chạy
+          filename: Cert.khoindvn.io.vn
