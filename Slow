@@ -1,5 +1,5 @@
 
-// 🅾️ Tên file: Slow
+// 🅾️ Tên file: Slow.js
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
 import { html } from 'k6/html';
@@ -16,6 +16,9 @@ const USER_AGENTS = [
     'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
     'Mozilla/5.0 (Linux; Android 13; SM-S908U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36'
 ];
+
+let proxyPool = []; // Biến lưu trữ danh sách proxy
+let lastProxyFetch = 0; // Thời gian lấy proxy lần cuối
 
 // --- CÁC HÀM LIÊN QUAN ĐẾN PROXY ---
 function fetchProxies() {
@@ -65,14 +68,21 @@ export const options = {
 
 // --- ĐIỂM VÀO CHÍNH (MAIN VU FUNCTION) ---
 export default function () {
-    const proxies = fetchProxies(); // Lấy danh sách proxy mới
+    const currentTime = Math.floor(Date.now() / 1000); // Thời gian hiện tại (giây)
+    
+    // Cập nhật proxy mỗi 3 phút (180 giây)
+    if (currentTime - lastProxyFetch >= 180) {
+        proxyPool = fetchProxies(); // Lấy danh sách proxy mới
+        lastProxyFetch = currentTime; // Cập nhật thời gian lấy proxy lần cuối
+    }
+
     const random = Math.random();
     if (random < 0.2) {
-        firstTimeVisitor(proxies);
+        firstTimeVisitor(proxyPool);
     } else if (random < 0.4) {
-        returningVisitor(proxies);
+        returningVisitor(proxyPool);
     } else {
-        chaoticBrowser(proxies);
+        chaoticBrowser(proxyPool);
     }
 }
 
