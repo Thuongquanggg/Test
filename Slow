@@ -6,7 +6,8 @@ import { html } from 'k6/html';
 
 // --- CẤU HÌNH ---
 const BASE_URL = __ENV.TARGET_URL || 'https://certapple.com';
-const PROXY_API_URL = 'https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text';
+// THAY ĐỔI Ở ĐÂY: Sử dụng URL raw của file proxy.txt trên GitHub
+const PROXY_FILE_URL = 'https://raw.githubusercontent.com/Thuongquanggg/Test/main/proxy.txt';
 
 // --- BIẾN TOÀN CỤC ---
 const USER_AGENTS = [
@@ -22,19 +23,21 @@ let lastProxyFetch = 0; // Thời gian lấy proxy lần cuối
 
 // --- CÁC HÀM LIÊN QUAN ĐẾN PROXY ---
 function fetchProxies() {
-    console.log('Đang lấy danh sách proxy mới...');
-    const res = http.get(PROXY_API_URL, { timeout: '30s' });
+    console.log('Đang lấy danh sách proxy mới từ GitHub...');
+    // THAY ĐỔI Ở ĐÂY: Lấy proxy từ file trên GitHub
+    const res = http.get(PROXY_FILE_URL, { timeout: '30s' });
     if (res.status === 200 && res.body) {
-        const allNewProxies = res.body.trim().split('\n').filter(p => p.length > 0);
+        // Logic xử lý không cần thay đổi vì định dạng file vẫn là text, mỗi proxy một dòng
+        const allNewProxies = res.body.trim().split('\n').filter(p => p.length > 0 && p.trim() !== '');
         if (allNewProxies.length > 0) {
-            const newProxies = allNewProxies.slice(0, 50);
+            const newProxies = allNewProxies.slice(0, 50); // Vẫn giới hạn 50 proxy để tối ưu
             console.log(`Lấy thành công ${newProxies.length} proxy mới.`);
             return newProxies;
         } else {
-            console.warn('API không trả về proxy nào.');
+            console.warn('File proxy.txt trên GitHub rỗng hoặc không có proxy hợp lệ.');
         }
     } else {
-        console.error(`Không thể lấy proxy. Status: ${res.status}`);
+        console.error(`Không thể lấy proxy từ GitHub. Status: ${res.status}`);
     }
     return []; // Trả về mảng rỗng nếu thất bại
 }
@@ -87,6 +90,7 @@ export default function () {
 }
 
 // --- CÁC HÀM MÔ PHỎNG HÀNH VI ---
+// (Không có thay đổi trong các hàm bên dưới)
 function firstTimeVisitor(proxies) {
     const params = getBaseParams(proxies);
     group('Hành vi: Khách lần đầu', function () {
@@ -171,13 +175,11 @@ function loadPageAssets(res, params, cache) {
     const doc = html.parse(res.body);
     const assetUrls = new Set();
     
-    // Tải assets (css, js, images, ...)
     doc.find('link[href], script[src], img[src], video[src], audio[src], source[src]').each((_, el) => {
         const url = el.attr('href') || el.attr('src');
         if (url) assetUrls.add(resolveUrl(url, res.url));
     });
 
-    // Tải các tài nguyên bên trong CSS (ví dụ: background-image)
     const contentType = res.headers['Content-Type'];
     const isCssResponse = contentType && contentType.includes('css');
     const cssBody = doc.find('style').text() + (isCssResponse ? res.body : '');
@@ -189,7 +191,6 @@ function loadPageAssets(res, params, cache) {
         }
     });
 
-    // Khám phá các link nội bộ để cho "chaoticBrowser" sử dụng
     doc.find('a[href]').each((_, el) => {
         const link = el.attr('href');
         if (link) {
@@ -200,7 +201,6 @@ function loadPageAssets(res, params, cache) {
         }
     });
 
-    // Gửi yêu cầu tải tất cả assets song song
     const requests = [];
     assetUrls.forEach(url => {
         if (url) {
