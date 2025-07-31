@@ -8,7 +8,7 @@ const BASE_URL = __ENV.TARGET_URL || 'https://certapple.com';
 const PROXY_API_URL = 'https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text';
 
 // --- BIẾN TOÀN CỤC ---
-let proxyPool = []; // Khởi tạo mảng rỗng, sẽ được điền trong setup
+// Không cần khởi tạo proxyPool ở đây nữa, nó sẽ được truyền từ setup
 const USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/115.0',
@@ -18,37 +18,44 @@ const USER_AGENTS = [
 ];
 
 // --- CÁC HÀM LIÊN QUAN ĐẾN PROXY ---
-function fetchAndUpdateProxies() {
+function fetchProxies() {
     console.log('Đang lấy danh sách proxy mới...');
     const res = http.get(PROXY_API_URL, { timeout: '30s' });
     if (res.status === 200 && res.body) {
         const allNewProxies = res.body.trim().split('\n').filter(p => p.length > 0);
         if (allNewProxies.length > 0) {
-            // Lấy tối đa 50 proxy hoặc ít hơn nếu API trả về không đủ
-            const newProxies = allNewProxies.slice(0, 50); 
-            proxyPool = newProxies;
-            console.log(`Cập nhật thành công! Bể có ${proxyPool.length} proxy mới.`);
+            const newProxies = allNewProxies.slice(0, 50);
+            console.log(`Lấy thành công ${newProxies.length} proxy mới.`);
+            return newProxies;
         } else {
             console.warn('API không trả về proxy nào.');
         }
     } else {
         console.error(`Không thể lấy proxy. Status: ${res.status}`);
     }
+    return []; // Trả về mảng rỗng nếu thất bại
 }
 
+// THAY ĐỔI 1: Sửa hàm `setup` để return dữ liệu
 export function setup() {
     console.log(`BẮT ĐẦU KIỂM THỬ CHO URL: ${BASE_URL}`);
-    fetchAndUpdateProxies();
+    const initialProxies = fetchProxies();
+    // Dữ liệu trả về từ setup sẽ được truyền cho các VU
+    return { proxies: initialProxies };
 }
 
 // Scenario riêng để cập nhật proxy định kỳ
+// Lưu ý: Việc cập nhật proxy trong quá trình chạy rất phức tạp và không được k6 hỗ trợ trực tiếp.
+// Cách tiếp cận này sẽ không hoạt động như mong đợi. Tốt nhất là chỉ lấy proxy trong `setup`.
+// Tôi sẽ tạm thời vô hiệu hóa kịch bản này để tập trung vào lỗi chính.
+/*
 export function proxyUpdater() {
-    // Vòng lặp vô hạn để cập nhật proxy sau mỗi 3 phút
     while (true) {
-        sleep(180); // 180 giây = 3 phút
-        fetchAndUpdateProxies();
+        sleep(180);
+        // Không có cách nào an toàn để cập nhật biến toàn cục cho tất cả các VU đang chạy.
     }
 }
+*/
 
 // --- CẤU HÌNH KỊCH BẢN TEST ---
 export const options = {
@@ -68,15 +75,17 @@ export const options = {
             gracefulStop: '2m',
             exec: 'default',
         },
+        /*
         proxy_refresher: {
-            executor: 'per-vu-iterations', // Dùng per-vu-iterations để nó chạy 1 lần duy nhất
+            executor: 'per-vu-iterations',
             vus: 1,
             iterations: 1,
-            maxDuration: '6000m', // Thời gian tối đa cho phép
+            maxDuration: '6000m',
             startTime: '0s',
             exec: 'proxyUpdater',
             gracefulStop: '10s',
         }
+        */
     },
     thresholds: {
         'http_req_duration{type:html}': ['p(95)<5000'],
@@ -86,21 +95,22 @@ export const options = {
     },
 };
 
-// --- ĐIỂM VÀO CHÍNH (MAIN VU FUNCTION) ---
-export default function () {
+// THAY ĐỔI 2: Hàm `default` nhận `data` từ `setup`
+export default function (data) {
     const random = Math.random();
     if (random < 0.2) {
-        firstTimeVisitor();
+        firstTimeVisitor(data.proxies);
     } else if (random < 0.4) {
-        returningVisitor();
+        returningVisitor(data.proxies);
     } else {
-        chaoticBrowser();
+        chaoticBrowser(data.proxies);
     }
 }
 
 // --- CÁC HÀM MÔ PHỎNG HÀNH VI ---
-function firstTimeVisitor() {
-    const params = getBaseParams();
+// THAY ĐỔI 3: Các hàm hành vi nhận và truyền `proxies`
+function firstTimeVisitor(proxies) {
+    const params = getBaseParams(proxies);
     group('Hành vi: Khách lần đầu', function () {
         const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
         const isStatusOk = check(res, { 'Trang chủ OK': (r) => r && r.status === 200 });
@@ -113,8 +123,8 @@ function firstTimeVisitor() {
 
 const vuCache = new Map();
 
-function returningVisitor() {
-    const params = getBaseParams();
+function returningVisitor(proxies) {
+    const params = getBaseParams(proxies);
     group('Hành vi: Khách quay lại', function () {
         const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
         const isStatusOk = check(res, { 'Trang chủ OK': (r) => r && r.status === 200 });
@@ -127,8 +137,8 @@ function returningVisitor() {
 
 const internalLinks = new Set([BASE_URL]);
 
-function chaoticBrowser() {
-    const params = getBaseParams();
+function chaoticBrowser(proxies) {
+    const params = getBaseParams(proxies);
     group('Hành vi: Người dùng đi dạo', function () {
         const linksArray = Array.from(internalLinks);
         const currentUrl = linksArray.length > 0 ? linksArray[Math.floor(Math.random() * linksArray.length)] : BASE_URL;
@@ -144,8 +154,8 @@ function chaoticBrowser() {
 
 // --- CÁC HÀM HỖ TRỢ ---
 
-// FIX 2: Tái cấu trúc hàm getBaseParams để không lặp lại code
-function getBaseParams() {
+// THAY ĐỔI 4: Hàm `getBaseParams` nhận `proxies` làm tham số
+function getBaseParams(proxyPool) {
     const params = {
         headers: {
             'User-Agent': USER_AGENTS[__VU % USER_AGENTS.length],
@@ -155,37 +165,29 @@ function getBaseParams() {
         },
     };
 
-    if (proxyPool.length > 0) {
+    if (proxyPool && proxyPool.length > 0) {
         params.proxy = proxyPool[__VU % proxyPool.length];
     } else {
-        // Chỉ cảnh báo một lần để tránh spam log
         if (__ITER === 0) {
-            console.warn(`[VU=${__VU}] Bể proxy đang rỗng! Request sẽ được gửi không qua proxy.`);
+            console.warn(`[VU=${__VU}] Bể proxy rỗng hoặc không được cung cấp. Request sẽ được gửi không qua proxy.`);
         }
     }
     return params;
 }
 
-// FIX 1: Thêm kiểm tra an toàn cho `res` và `res.body`
+// Hàm loadPageAssets và resolveUrl không cần thay đổi
 function loadPageAssets(res, params, cache) {
+    // ... (giữ nguyên như cũ)
     const discoveredLinks = new Set();
-    
-    // KIỂM TRA QUAN TRỌNG: Nếu không có response hoặc không có body thì dừng lại ngay.
-    // Đây là nguyên nhân chính gây ra lỗi "Cannot read property 'parse' of undefined or null".
     if (!res || !res.body) {
         return Array.from(discoveredLinks);
     }
-
     const doc = html.parse(res.body);
     const assetUrls = new Set();
-
-    // Tải assets (css, js, images, ...)
     doc.find('link[href], script[src], img[src], video[src], audio[src], source[src]').each((_, el) => {
         const url = el.attr('href') || el.attr('src');
         if (url) assetUrls.add(resolveUrl(url, res.url));
     });
-
-    // Tải các tài nguyên bên trong CSS (ví dụ: background-image)
     const contentType = res.headers['Content-Type'];
     const isCssResponse = contentType && contentType.includes('css');
     const cssBody = doc.find('style').text() + (isCssResponse ? res.body : '');
@@ -196,8 +198,6 @@ function loadPageAssets(res, params, cache) {
             assetUrls.add(resolveUrl(url, res.url));
         }
     });
-
-    // Khám phá các link nội bộ để cho "chaoticBrowser" sử dụng
     doc.find('a[href]').each((_, el) => {
         const link = el.attr('href');
         if (link) {
@@ -207,8 +207,6 @@ function loadPageAssets(res, params, cache) {
             }
         }
     });
-
-    // Gửi yêu cầu tải tất cả assets song song
     const requests = [];
     assetUrls.forEach(url => {
         if (url) {
@@ -219,7 +217,6 @@ function loadPageAssets(res, params, cache) {
             requests.push(['GET', url, null, assetParams]);
         }
     });
-
     if (requests.length > 0) {
         const responses = http.batch(requests);
         if (cache) {
@@ -239,11 +236,8 @@ function loadPageAssets(res, params, cache) {
 
 function resolveUrl(url, pageUrl) {
     try {
-        // new URL(url, base) là cách chuẩn và an toàn nhất để giải quyết các URL tương đối
         return (new URL(url, pageUrl)).href;
     } catch (e) {
-        // Trả về chuỗi rỗng nếu URL không hợp lệ, tránh làm crash kịch bản
-        // console.warn(`URL không hợp lệ: "${url}" trên trang ${pageUrl}`);
         return '';
     }
 }
