@@ -1,6 +1,6 @@
 # 🅾️.github/workflows/Cert.yml
 
-name: 🚀 Kiểm Tra Web Cert 2
+name: 🚀 Kiểm Tra Web AppleP12
 
 on:
   # Cho phép chạy thủ công từ tab Actions trên GitHub
