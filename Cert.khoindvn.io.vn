@@ -1,4 +1,5 @@
-// 🅾️ Tên file: cert_50_proxies_3_min.js
+
+// 🅾️ Tên file: Khoindvn
 // Kịch bản kiểm thử sức bền, mô phỏng chu kỳ hoạt động dài.
 // *** ĐÃ CẬP NHẬT: Chỉ lấy 50 proxy, chu kỳ 3 phút ***
 
@@ -7,7 +8,7 @@ import { check, group, sleep } from 'k6';
 import { html } from 'k6/html';
 
 // --- CẤU HÌNH ---
-const BASE_URL = 'https://cert.khoindvn.io.vn';
+const BASE_URL = 'https://cert.khoindvn.io.vn'; // Địa chỉ mà yêu cầu sẽ được chuyển hướng tới
 const PROXY_API_URL = 'https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text';
 
 // --- BIẾN TOÀN CỤC ---
