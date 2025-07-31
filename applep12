@@ -69,7 +69,7 @@ export const options = {
         proxy_refresher: {
             executor: 'constant-vus',
             vus: 1,
-            duration: '80m', // 2+5+60+10+3 = 80m
+            duration: '6000m', // 2+5+60+10+3 = 80m
             startTime: '0s',
             exec: 'proxyUpdater',
             gracefulStop: '10s',
