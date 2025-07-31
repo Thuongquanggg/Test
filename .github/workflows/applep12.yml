@@ -22,4 +22,4 @@ jobs:
         uses: k6io/k6-action@v0.3.1
         with:
           # Chỉ định file kịch bản k6 để chạy
-          filename: 2
+          filename: applep12
