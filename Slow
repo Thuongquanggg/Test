@@ -1,4 +1,3 @@
-
 // 🅾️ Tên file: Slow (js)
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
@@ -6,12 +5,8 @@ import { html } from 'k6/html';
 
 // --- CẤU HÌNH ---
 const BASE_URL = __ENV.TARGET_URL || 'https://certapple.com';
-
-// THAY ĐỔI Ở ĐÂY: Sử dụng URL API của proxyscrape và định dạng protocolipport
-const PROXY_API_URL = 'https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text';
-
-// THAY ĐỔI Ở ĐÂY: Đặt thời gian làm mới proxy là 5 phút (300 giây)
-const PROXY_REFRESH_INTERVAL_SECONDS = 300;
+// THAY ĐỔI Ở ĐÂY: Sử dụng URL raw của file proxy.txt trên GitHub
+const PROXY_FILE_URL = 'https://raw.githubusercontent.com/Thuongquanggg/Proxy/main/proxies.txt';
 
 // --- BIẾN TOÀN CỤC ---
 const USER_AGENTS = [
@@ -27,23 +22,21 @@ let lastProxyFetch = 0; // Thời gian lấy proxy lần cuối
 
 // --- CÁC HÀM LIÊN QUAN ĐẾN PROXY ---
 function fetchProxies() {
-    console.log('Đang lấy danh sách proxy mới từ proxyscrape...');
-    // THAY ĐỔI Ở ĐÂY: Lấy proxy từ API
-    const res = http.get(PROXY_API_URL, { timeout: '30s' });
-
+    console.log('Đang lấy danh sách proxy mới từ GitHub...');
+    // THAY ĐỔI Ở ĐÂY: Lấy proxy từ file trên GitHub
+    const res = http.get(PROXY_FILE_URL, { timeout: '30s' });
     if (res.status === 200 && res.body) {
-        // Logic xử lý không cần thay đổi vì định dạng vẫn là text, mỗi proxy một dòng
+        // Logic xử lý không cần thay đổi vì định dạng file vẫn là text, mỗi proxy một dòng
         const allNewProxies = res.body.trim().split('\n').filter(p => p.length > 0 && p.trim() !== '');
         if (allNewProxies.length > 0) {
-            // Giới hạn 50 proxy để tối ưu hiệu suất và tránh các proxy kém chất lượng
-            const newProxies = allNewProxies.slice(0, 50); 
+            const newProxies = allNewProxies.slice(0, 50); // Vẫn giới hạn 50 proxy để tối ưu
             console.log(`Lấy thành công ${newProxies.length} proxy mới.`);
             return newProxies;
         } else {
-            console.warn('API không trả về proxy hoặc danh sách rỗng.');
+            console.warn('File proxy.txt trên GitHub rỗng hoặc không có proxy hợp lệ.');
         }
     } else {
-        console.error(`Không thể lấy proxy từ API. Status: ${res.status}`);
+        console.error(`Không thể lấy proxy từ GitHub. Status: ${res.status}`);
     }
     return []; // Trả về mảng rỗng nếu thất bại
 }
@@ -79,13 +72,12 @@ export const options = {
 export default function () {
     const currentTime = Math.floor(Date.now() / 1000); // Thời gian hiện tại (giây)
     
-    // THAY ĐỔI Ở ĐÂY: Cập nhật proxy mỗi 5 phút (300 giây) hoặc nếu bể proxy rỗng
-    if (currentTime - lastProxyFetch >= PROXY_REFRESH_INTERVAL_SECONDS || proxyPool.length === 0) {
+    // Cập nhật proxy mỗi 3 phút (180 giây)
+    if (currentTime - lastProxyFetch >= 180 || proxyPool.length === 0) {
         proxyPool = fetchProxies(); // Lấy danh sách proxy mới
         lastProxyFetch = currentTime; // Cập nhật thời gian lấy proxy lần cuối
     }
 
-    // Phân bổ hành vi người dùng ảo
     const random = Math.random();
     if (random < 0.2) {
         firstTimeVisitor(proxyPool);
@@ -97,7 +89,7 @@ export default function () {
 }
 
 // --- CÁC HÀM MÔ PHỎNG HÀNH VI ---
-// (Không có thay đổi trong các hàm bên dưới, chúng hoạt động như cũ)
+// (Không có thay đổi trong các hàm bên dưới)
 function firstTimeVisitor(proxies) {
     const params = getBaseParams(proxies);
     group('Hành vi: Khách lần đầu', function () {
@@ -165,9 +157,6 @@ function getBaseParams(proxyPool) {
     };
 
     if (proxyPool && proxyPool.length > 0) {
-        // Định dạng proxy từ proxyscrape là `protocol://ip:port`
-        // k6 yêu cầu `http://ip:port` hoặc `https://ip:port`
-        // Định dạng `protocolipport` đã cung cấp đúng định dạng này.
         params.proxy = proxyPool[__VU % proxyPool.length];
     } else {
         console.warn(`[VU=${__VU}] Bể proxy rỗng hoặc không được cung cấp. Request sẽ được gửi không qua proxy.`);
