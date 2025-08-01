@@ -1,0 +1,41 @@
+# 🅾️ .github/workflows/controller.yml
+name: 🔄 Điều Khiển Vòng Lặp Slow
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+permissions:
+  actions: write
+jobs:
+  control-loop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Khởi chạy Slow cho URL 1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Bắt đầu chạy Slow.yml với target_url=https://certapple.com"
+          gh workflow run Slow.yml --ref ${{ github.ref_name }} -f target_url='https://certapple.com'
+      - name: 2. Chờ 3 phút
+        run: |
+          echo "Đã khởi chạy. Sẽ chờ trong 3 phút (180 giây)..."
+          sleep 180
+      - name: 3. Dừng workflow Slow.yml đang chạy
+        uses: styfle/cancel-workflow-action@0.12.1
+        with:
+          workflow_id: Slow.yml 
+          access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: 4. Nghỉ 2 phút
+        run: |
+          echo "Đã dừng Slow.yml. Bắt đầu nghỉ trong 2 phút (120 giây)..."
+          sleep 120
+      - name: 5. Khởi chạy Test cho URL 2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Hết thời gian nghỉ. Bắt đầu chạy Slow.yml với target_url=https://certapple.com"
+          gh workflow run Slow.yml --ref ${{ github.ref_name }} -f target_url='https://certapple.com'
+      - name: 6. Hoàn thành chu trình
+        run: |
+          echo "Đã khởi chạy lần test thứ hai. Chu trình này đã hoàn tất."
+          echo "Vòng lặp tiếp theo sẽ được kích hoạt bởi 'schedule' sau khoảng 15 phút."
