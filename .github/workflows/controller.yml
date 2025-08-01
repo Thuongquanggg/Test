@@ -1,14 +1,15 @@
-# 🅾️Vị trí file: .github/workflows/controller.yml
+# 🅾️File controller.yml
 
 name: 🔄 Điều Khiển Vòng Lặp Test
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  # Chạy tự động mỗi 5 phút
-  workflow_dispatch:  # Cho phép chạy thủ công từ tab Actions
+    - cron: '*/5 * * * *' 
+  workflow_dispatch: 
 
 permissions:
   actions: write
+  contents: read
 
 jobs:
   control-loop:
@@ -22,7 +23,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Bắt đầu chạy Test.yml với target_url=https://certapple.com"
-          gh workflow run Test.yml --ref ${{ github.ref_name }} -f target_url='https://certapple.com'
+          if gh workflow run Test.yml --ref ${{ github.ref_name }} -f target_url='https://certapple.com'; then
+            echo "Test.yml đã được khởi chạy thành công."
+          else
+            echo "Có lỗi xảy ra khi khởi chạy Test.yml."
+            exit 1
+          fi
 
       - name: Hoàn thành chu trình
         run: |
