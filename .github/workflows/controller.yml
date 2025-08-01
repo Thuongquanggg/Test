@@ -1,41 +1,53 @@
-# 🅾️ .github/workflows/controller.yml
-name: 🔄 Điều Khiển Vòng Lặp Slow
+name: 🔄 Điều Khiển Vòng Lặp Test
+
 on:
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
+
 permissions:
   actions: write
+
 jobs:
   control-loop:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Khởi chạy Slow cho URL 1
+      # BƯỚC QUAN TRỌNG: Thêm bước này vào đầu tiên
+      # Bước này sẽ tải mã nguồn và thư mục .git về máy ảo
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: 1. Khởi chạy Test cho URL 1 (certapple.com)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Bắt đầu chạy Slow.yml với target_url=https://certapple.com"
-          gh workflow run Slow.yml --ref ${{ github.ref_name }} -f target_url='https://certapple.com'
+          echo "Bắt đầu chạy Test.yml với target_url=https://certapple.com"
+          # Giả sử file test của bạn tên là Test.yml
+          gh workflow run Test.yml --ref ${{ github.ref_name }} -f target_url='https://certapple.com'
+
       - name: 2. Chờ 3 phút
         run: |
           echo "Đã khởi chạy. Sẽ chờ trong 3 phút (180 giây)..."
           sleep 180
-      - name: 3. Dừng workflow Slow.yml đang chạy
+
+      - name: 3. Dừng workflow Test.yml đang chạy
         uses: styfle/cancel-workflow-action@0.12.1
         with:
-          workflow_id: Slow.yml 
+          workflow_id: Test.yml 
           access_token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: 4. Nghỉ 2 phút
         run: |
-          echo "Đã dừng Slow.yml. Bắt đầu nghỉ trong 2 phút (120 giây)..."
+          echo "Đã dừng Test.yml. Bắt đầu nghỉ trong 2 phút (120 giây)..."
           sleep 120
-      - name: 5. Khởi chạy Test cho URL 2
+
+      - name: 5. Khởi chạy Test cho URL 2 (github.com)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Hết thời gian nghỉ. Bắt đầu chạy Slow.yml với target_url=https://certapple.com"
-          gh workflow run Slow.yml --ref ${{ github.ref_name }} -f target_url='https://certapple.com'
+          echo "Hết thời gian nghỉ. Bắt đầu chạy Test.yml với target_url=https://github.com"
+          gh workflow run Test.yml --ref ${{ github.ref_name }} -f target_url='https://github.com'
+
       - name: 6. Hoàn thành chu trình
         run: |
           echo "Đã khởi chạy lần test thứ hai. Chu trình này đã hoàn tất."
-          echo "Vòng lặp tiếp theo sẽ được kích hoạt bởi 'schedule' sau khoảng 15 phút."
