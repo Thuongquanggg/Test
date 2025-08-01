@@ -2,7 +2,7 @@ name: 🔄 Điều Khiển Vòng Lặp Test
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -28,7 +28,7 @@ jobs:
       - name: 2. Chờ 3 phút
         run: |
           echo "Đã khởi chạy. Sẽ chờ trong 3 phút (180 giây)..."
-          sleep 180
+          sleep 240
 
       - name: 3. Dừng workflow Test.yml đang chạy
         uses: styfle/cancel-workflow-action@0.12.1
@@ -36,18 +36,8 @@ jobs:
           workflow_id: Test.yml 
           access_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 4. Nghỉ 2 phút
-        run: |
-          echo "Đã dừng Test.yml. Bắt đầu nghỉ trong 2 phút (120 giây)..."
-          sleep 120
+     
 
-      - name: 5. Khởi chạy Test cho URL 2 (https://certapple.com)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "Hết thời gian nghỉ. Bắt đầu chạy Test.yml với target_url= https://certapple.com"
-          gh workflow run Test.yml --ref ${{ github.ref_name }} -f target_url='https://certapple.com'
+     
 
-      - name: 6. Hoàn thành chu trình
-        run: |
-          echo "Đã khởi chạy lần test thứ hai. Chu trình này đã hoàn tất."
+      
