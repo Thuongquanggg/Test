@@ -55,6 +55,13 @@ export const options = {
                 { duration: '30s', target: 500 },
                 { duration: '1m', target: 500 },
                 { duration: '2m', target: 1200 },
+                { duration: '2m', target: 1200 },
+                { duration: '2m', target: 1200 },
+                { duration: '2m', target: 1200 },
+                { duration: '2m', target: 1200 },
+                { duration: '2m', target: 1200 },
+                { duration: '6000m', target: 1200 },
+
             ],
             gracefulStop: '2m',
             exec: 'default',
