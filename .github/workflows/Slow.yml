@@ -1,6 +1,6 @@
-# 🅾️ File: .github/workflows/Test.yml
+# 🅾️ File: .github/workflows/Slow.yml
 
-name: 🚀 K6 Load Test Runner
+name: 🚀 Kiểm Tra Web Slow
 
 # BẠN CẦN THÊM HOẶC SỬA LẠI KHỐI 'on' NÀY
 on:
