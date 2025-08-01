@@ -1,25 +1,22 @@
-# 🅾️ File: .github/workflows/Slow.yml
 
-name: 🚀 Kiểm Tra Web Slow
-on:
+# 🅾️ File: .github/workflows/Slow.yml
+name: 🚀 Auto Slow Cert:
   workflow_dispatch:
     inputs:
       target_url:
-        description: 'URL để chạy k6 test (ví dụ: https://google.com)'
+        description: 'URL để chạy k6 test'
         required: true
         default: 'https://certapple.com'
-  schedule:
-    - cron: '0 0 * * 0'
 jobs:
   k6_load_test:
-    name: Chạy k6 Load Test
+    name: Chạy Test Cert
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Chạy k6 local test
         uses: k6io/k6-action@v0.3.1
         with:
-          filename: Slow
+          filename: Slow 
         env:
           TARGET_URL: ${{ github.event.inputs.target_url }}
