@@ -1,9 +1,11 @@
+# 🅾️Vị trí file: .github/workflows/controller.yml
+
 name: 🔄 Điều Khiển Vòng Lặp Test
 
 on:
   schedule:
-    - cron: '*/6 * * * *'
-  workflow_dispatch:
+    - cron: '*/5 * * * *'  # Chạy tự động mỗi 5 phút
+  workflow_dispatch:  # Cho phép chạy thủ công từ tab Actions
 
 permissions:
   actions: write
@@ -12,32 +14,16 @@ jobs:
   control-loop:
     runs-on: ubuntu-latest
     steps:
-      # BƯỚC QUAN TRỌNG: Thêm bước này vào đầu tiên
-      # Bước này sẽ tải mã nguồn và thư mục .git về máy ảo
       - name: Checkout repository code
         uses: actions/checkout@v4
 
-      - name: 1. Khởi chạy Test cho URL 1 (certapple.com)
+      - name: Khởi chạy Test cho URL (certapple.com)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Bắt đầu chạy Test.yml với target_url=https://certapple.com"
-          # Giả sử file test của bạn tên là Test.yml
           gh workflow run Test.yml --ref ${{ github.ref_name }} -f target_url='https://certapple.com'
 
-      - name: 2. Chờ 4 phút
+      - name: Hoàn thành chu trình
         run: |
-          echo "Đã khởi chạy. Sẽ chờ trong 4 phút..."
-          sleep 240
-
-      - name: 3. Dừng workflow Test.yml đang chạy
-        uses: styfle/cancel-workflow-action@0.12.1
-        with:
-          workflow_id: Test.yml 
-          access_token: ${{ secrets.GITHUB_TOKEN }}
-
-     
-
-     
-
-      
+          echo "Đã khởi chạy Test.yml với target_url=https://certapple.com. Chu trình này đã hoàn tất."
