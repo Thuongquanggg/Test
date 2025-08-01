@@ -2,7 +2,7 @@ name: 🔄 Điều Khiển Vòng Lặp Test
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '*/6 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -25,9 +25,9 @@ jobs:
           # Giả sử file test của bạn tên là Test.yml
           gh workflow run Test.yml --ref ${{ github.ref_name }} -f target_url='https://certapple.com'
 
-      - name: 2. Chờ 3 phút
+      - name: 2. Chờ 4 phút
         run: |
-          echo "Đã khởi chạy. Sẽ chờ trong 3 phút (180 giây)..."
+          echo "Đã khởi chạy. Sẽ chờ trong 4 phút..."
           sleep 240
 
       - name: 3. Dừng workflow Test.yml đang chạy
