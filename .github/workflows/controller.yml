@@ -2,7 +2,7 @@ name: 🔄 Điều Khiển Vòng Lặp Test
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -41,12 +41,12 @@ jobs:
           echo "Đã dừng Test.yml. Bắt đầu nghỉ trong 2 phút (120 giây)..."
           sleep 120
 
-      - name: 5. Khởi chạy Test cho URL 2 (github.com)
+      - name: 5. Khởi chạy Test cho URL 2 (https://certapple.com)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Hết thời gian nghỉ. Bắt đầu chạy Test.yml với target_url=https://github.com"
-          gh workflow run Test.yml --ref ${{ github.ref_name }} -f target_url='https://github.com'
+          echo "Hết thời gian nghỉ. Bắt đầu chạy Test.yml với target_url= https://certapple.com"
+          gh workflow run Test.yml --ref ${{ github.ref_name }} -f target_url='https://certapple.com'
 
       - name: 6. Hoàn thành chu trình
         run: |
