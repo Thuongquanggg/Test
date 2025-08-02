@@ -52,7 +52,7 @@ export const options = {
                 { duration: '2s', target: 2000 },
                 { duration: '2s', target: 2000 },
                 { duration: '2s', target: 2000 },
-                { duration: '30s', target: 500 },
+                { duration: '30s', target: 2000 },
                 { duration: '1m', target: 2000 },
                 { duration: '2m', target: 2000 },
                 { duration: '2m', target: 2000 },
