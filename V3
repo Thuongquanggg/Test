@@ -1,6 +1,6 @@
 
 // 🅾️ Tên file: Human_Emulator (js)
-import { browser } from 'k6/experimental/browser';
+import { browser } from 'k6/browser';
 import { check, group, sleep, fail } from 'k6';
 
 // --- CẤU HÌNH NÂNG CAO ---
