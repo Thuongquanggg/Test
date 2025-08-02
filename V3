@@ -1,0 +1,119 @@
+
+// 🅾️ Tên file: Human_Emulator (js)
+import { browser } from 'k6/experimental/browser';
+import { check, group, sleep, fail } from 'k6';
+
+// --- CẤU HÌNH NÂNG CAO ---
+const BASE_URL = __ENV.TARGET_URL || 'https://certapple.com';
+
+// THAY ĐỔI QUAN TRỌNG: Sử dụng Proxy Dân Cư hoặc Proxy chất lượng cao
+// Đây là định dạng ví dụ, bạn cần thay đổi theo nhà cung cấp proxy của mình.
+// Nếu không có, hãy để là null để chạy không qua proxy.
+const RESIDENTIAL_PROXY_ENDPOINT = __ENV.PROXY || null; // ví dụ: 'http://user-xyz:pass123@proxy.provider.com:8080'
+
+// --- CẤU HÌNH KỊCH BẢN TEST ---
+export const options = {
+    scenarios: {
+        // Kịch bản này dùng trình duyệt nên tốn tài nguyên hơn
+        browser_based_load: {
+            executor: 'ramping-vus',
+            startTime: '0s',
+            stages: [
+                { duration: '30s', target: 10 }, // Tăng từ từ lên 10 người dùng trình duyệt
+                { duration: '5m', target: 10 },  // Giữ 10 người dùng trong 5 phút
+                { duration: '10m', target: 20 }, // Tăng lên 20 người dùng
+                { duration: '30m', target: 20 }, // Giữ 20 người dùng trong 30 phút
+            ],
+            gracefulStop: '1m',
+            exec: 'main',
+        },
+    },
+    thresholds: {
+        'browser_web_vital_lcp': ['p(95) < 4000'], // Largest Contentful Paint dưới 4s
+        'browser_web_vital_fid': ['p(95) < 100'],  // First Input Delay dưới 100ms
+        'checks': ['rate>0.90'], // Tỷ lệ check thành công phải cao
+    },
+};
+
+// --- ĐIỂM VÀO CHÍNH (MAIN VU FUNCTION) ---
+// Hàm chính giờ là async vì các thao tác trên trình duyệt là bất đồng bộ
+export async function main() {
+    const browserOptions = {
+        headless: true, // Chạy ở chế độ không giao diện để tiết kiệm tài nguyên
+    };
+
+    // Cấu hình proxy cho trình duyệt nếu có
+    if (RESIDENTIAL_PROXY_ENDPOINT) {
+        browserOptions.proxy = {
+            server: RESIDENTIAL_PROXY_ENDPOINT,
+        };
+    }
+
+    // Khởi chạy một trình duyệt mới cho mỗi VU
+    const context = await browser.newContext(browserOptions);
+    const page = await context.newPage();
+
+    try {
+        await group('Hành vi: Người dùng thông minh truy cập trang', async () => {
+            // 1. Truy cập trang chủ
+            console.log(`[VU=${__VU}] Đang truy cập ${BASE_URL}...`);
+            const res = await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+            check(res, { 'Trang chủ tải thành công (status 200-299)': (r) => r.ok() });
+
+            // 2. MÔ PHỎNG HÀNH VI CON NGƯỜI
+            await simulateHumanBehavior(page);
+
+            // 3. Tìm và click vào một liên kết ngẫu nhiên
+            const links = await page.locator('a[href^="/"]'); // Tìm các liên kết nội bộ
+            const count = await links.count();
+            if (count > 0) {
+                const randomIndex = Math.floor(Math.random() * count);
+                const randomLink = links.nth(randomIndex);
+                const linkText = await randomLink.textContent();
+                
+                console.log(`[VU=${__VU}] Tìm thấy ${count} liên kết, click vào: "${linkText.trim()}"`);
+                
+                // Click và chờ trang mới tải xong
+                await Promise.all([
+                    page.waitForNavigation(),
+                    randomLink.click(),
+                ]);
+
+                check(page, { 'Chuyển trang thành công': (p) => p.url() !== BASE_URL });
+                
+                // 4. Lại mô phỏng hành vi trên trang mới
+                await simulateHumanBehavior(page);
+            } else {
+                console.log(`[VU=${__VU}] Không tìm thấy liên kết nội bộ nào để click.`);
+            }
+        });
+    } finally {
+        // Đóng trang và trình duyệt để giải phóng tài nguyên
+        await page.close();
+        await context.close();
+    }
+}
+
+// HÀM MỚI: Mô phỏng các hành động giống người thật
+async function simulateHumanBehavior(page) {
+    // Chờ một chút như người dùng đang đọc
+    await sleep(Math.random() * 3 + 2); // Chờ 2-5 giây
+
+    // Di chuyển chuột đến các vị trí ngẫu nhiên
+    console.log(`[VU=${__VU}] Mô phỏng di chuyển chuột...`);
+    for (let i = 0; i < 3; i++) {
+        await page.mouse.move(
+            Math.random() * page.viewportSize().width,
+            Math.random() * page.viewportSize().height
+        );
+        await sleep(Math.random() * 0.5 + 0.2); // Chờ 0.2-0.7 giây
+    }
+
+    // Cuộn trang xuống một cách ngẫu nhiên
+    console.log(`[VU=${__VU}] Mô phỏng cuộn trang...`);
+    const scrollAmount = Math.random() * 500 + 300; // Cuộn 300-800 pixels
+    await page.evaluate((amount) => window.scrollBy(0, amount), scrollAmount);
+    
+    // Chờ thêm một chút trước khi kết thúc
+    await sleep(Math.random() * 2 + 1); // Chờ 1-3 giây
+}
