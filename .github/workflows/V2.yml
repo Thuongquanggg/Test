@@ -1,6 +1,6 @@
 # 🅾️ File: .github/workflows/Slow.yml
 
-name: 🚀 V3
+name: 🚀 V2
 
 # BẠN CẦN THÊM HOẶC SỬA LẠI KHỐI 'on' NÀY
 on:
@@ -24,6 +24,6 @@ jobs:
       - name: Chạy k6 local test
         uses: k6io/k6-action@v0.3.1
         with:
-          filename: V3 
+          filename: V2
         env:
           TARGET_URL: ${{ github.event.inputs.target_url }}
