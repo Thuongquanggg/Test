@@ -1,0 +1,29 @@
+# 🅾️ File: .github/workflows/Slow.yml
+
+name: 🚀 V3
+
+# BẠN CẦN THÊM HOẶC SỬA LẠI KHỐI 'on' NÀY
+on:
+  # Dòng này cho phép workflow được kích hoạt từ bên ngoài
+  workflow_dispatch:
+    # Các input này là bắt buộc để controller.yml có thể truyền URL vào
+    inputs:
+      target_url:
+        description: 'URL để chạy k6 test (ví dụ: https://google.com)'
+        required: true
+        default: 'https://certapple.com'
+
+jobs:
+  k6_load_test:
+    name: Chạy k6 Load Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Chạy k6 local test
+        uses: k6io/k6-action@v0.3.1
+        with:
+          filename: V3 
+        env:
+          TARGET_URL: ${{ github.event.inputs.target_url }}
