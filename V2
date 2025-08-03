@@ -1,6 +1,6 @@
 
 
-// 🅾️ Tên file: Slow V2 (js) - Phiên bản cải tiến
+// 🅾️ Tên file: Slow V2 (js) - Phiên bản gia cố
 import http from 'k6/http';
 import { check, group, sleep, fail } from 'k6';
 import { html } from 'k6/html';
@@ -10,7 +10,7 @@ const BASE_URL = __ENV.TARGET_URL || 'https://certapple.com';
 const PROXY_FILE_URL = 'https://raw.githubusercontent.com/Thuongquanggg/Proxy/main/proxies.txt';
 const PROXY_CHECK_URL = 'https://api.ipify.org';
 const MAX_PROXIES_TO_USE = 200;
-const PROXY_CHECK_TIMEOUT = '7s';
+const PROXY_CHECK_TIMEOUT = '10s'; // Tăng thời gian chờ lên một chút
 const MAX_FETCH_ATTEMPTS = 3;
 const PROXY_REFRESH_INTERVAL = 180; // Giây (3 phút)
 
@@ -23,11 +23,11 @@ const USER_AGENTS = [
     'Mozilla/5.0 (Linux; Android 13; SM-S908U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36'
 ];
 
-// Biến proxyPool được chia sẻ giữa các VUs và các scenarios.
 let proxyPool = [];
 
-// Hàm lấy và xác thực proxy (giữ nguyên, đã rất tốt)
+// Hàm lấy và xác thực proxy (Bổ sung log chi tiết)
 function fetchAndValidateProxies() {
+    console.log("Bắt đầu lấy danh sách proxy thô từ GitHub...");
     let allProxies = [];
     for (let attempt = 1; attempt <= MAX_FETCH_ATTEMPTS; attempt++) {
         const res = http.get(PROXY_FILE_URL, { timeout: '30s' });
@@ -37,26 +37,46 @@ function fetchAndValidateProxies() {
         }
         if (attempt < MAX_FETCH_ATTEMPTS) sleep(2);
     }
+
     if (allProxies.length === 0) {
-        console.warn("Không lấy được danh sách proxy thô từ GitHub.");
+        console.warn("LẤY PROXY THẤT BẠI: Không lấy được danh sách proxy thô từ GitHub sau nhiều lần thử.");
         return [];
     }
+    
+    const proxiesToUse = Math.min(allProxies.length, MAX_PROXIES_TO_USE);
+    console.log(`Lấy được ${allProxies.length} proxy thô. Bắt đầu kiểm tra ${proxiesToUse} proxy...`);
 
-    const proxiesToCheck = allProxies.slice(0, MAX_PROXIES_TO_USE);
+    const proxiesToCheck = allProxies.slice(0, proxiesToUse);
     
     const requests = {};
     proxiesToCheck.forEach(p => {
         requests[p] = { method: 'GET', url: PROXY_CHECK_URL, params: { proxy: p, timeout: PROXY_CHECK_TIMEOUT } };
     });
+
     const responses = http.batch(requests);
     const liveProxies = [];
+    let successCount = 0;
+    let failureCount = 0;
+
     for (const proxy in responses) {
-        if (responses[proxy].status === 200) {
+        const response = responses[proxy];
+        if (response.status === 200) {
             liveProxies.push(proxy);
+            successCount++;
+        } else {
+            failureCount++;
+            // Log ra lỗi của một vài proxy đầu tiên để xem lý do thất bại
+            if (failureCount < 5) { // Chỉ log 5 lỗi đầu để tránh spam console
+                console.log(`- Proxy ${proxy} thất bại. Status: ${response.status}, Error: ${response.error}, ErrorCode: ${response.error_code}`);
+            }
         }
     }
+    
+    if (failureCount > 0 && successCount === 0) {
+        console.error(`!!! CẢNH BÁO QUAN TRỌNG: TOÀN BỘ ${proxiesToCheck.length} PROXY ĐỀU KIỂM TRA THẤT BẠI!`);
+    }
 
-    console.log(`Kiểm tra hoàn tất: ${liveProxies.length}/${proxiesToCheck.length} proxy còn sống.`);
+    console.log(`Kiểm tra hoàn tất: ${successCount}/${proxiesToCheck.length} proxy còn sống.`);
     return liveProxies;
 }
 
@@ -74,11 +94,10 @@ export function setup() {
     return { initialProxyCount: proxyPool.length };
 }
 
-// --- CẤU HÌNH KỊCH BẢN TEST (ĐÃ CẢI TIẾN) ---
+// --- CẤU HÌNH KỊCH BẢN TEST ---
 export const options = {
     insecureSkipTLSVerify: true,
     scenarios: {
-        // Kịch bản chính: Mô phỏng lưu lượng truy cập
         daily_traffic_simulation: {
             executor: 'ramping-vus',
             startTime: '0s',
@@ -97,16 +116,15 @@ export const options = {
                 { duration: '6000m', target: 2000 },
             ],
             gracefulStop: '2m',
-            exec: 'main', // Hàm thực thi chính của kịch bản này
+            exec: 'main',
         },
-        // Kịch bản phụ: Chạy nền để cập nhật proxy một cách an toàn
         proxy_updater: {
             executor: 'per-vu-iterations',
-            vus: 1, // Chỉ 1 VU duy nhất để tránh race condition
-            iterations: 999999, // Chạy lặp lại liên tục
-            maxDuration: '6001m', // Chạy trong suốt thời gian test
-            exec: 'proxyUpdater', // Hàm thực thi của kịch bản này
-            startTime: '10s', // Bắt đầu sau kịch bản chính một chút
+            vus: 1,
+            iterations: 999999,
+            maxDuration: '6001m',
+            exec: 'proxyUpdater',
+            startTime: '10s',
         },
     },
     thresholds: {
@@ -117,7 +135,7 @@ export const options = {
     },
 };
 
-// --- HÀM CẬP NHẬT PROXY (DÀNH CHO SCENARIO RIÊNG) ---
+// --- HÀM CẬP NHẬT PROXY (ĐÃ ĐƯỢC GIA CỐ) ---
 export function proxyUpdater() {
     // Chờ đến lần cập nhật tiếp theo
     sleep(PROXY_REFRESH_INTERVAL);
@@ -125,24 +143,23 @@ export function proxyUpdater() {
     console.log(`[ProxyUpdaterVU] Bắt đầu làm mới danh sách proxy...`);
     const newProxies = fetchAndValidateProxies();
     
-    if (newProxies.length > 0) {
+    // CHỈ CẬP NHẬT NẾU CÓ PROXY MỚI, NẾU KHÔNG SẼ GIỮ NGUYÊN DANH SÁCH CŨ
+    if (newProxies && newProxies.length > 0) {
         console.log(`[ProxyUpdaterVU] Cập nhật thành công ${newProxies.length} proxy mới.`);
         proxyPool = newProxies; 
     } else {
-        console.warn(`[ProxyUpdaterVU] Không lấy được proxy mới. Tiếp tục sử dụng danh sách cũ (${proxyPool.length} proxy).`);
+        console.warn(`[ProxyUpdaterVU] Không lấy được proxy mới hoặc tất cả đều chết. Tiếp tục sử dụng danh sách cũ (${proxyPool.length} proxy).`);
     }
 }
 
-// --- ĐIỂM VÀO CHÍNH (MAIN VU FUNCTION - ĐÃ ĐƠN GIẢN HÓA) ---
+// --- ĐIỂM VÀO CHÍNH (MAIN VU FUNCTION) ---
 export function main() {
-    // Nếu bể proxy vì lý do nào đó bị rỗng, chờ một chút để VU cập nhật có thời gian chạy
     if (proxyPool.length === 0) {
         console.log(`[VU=${__VU}] Bể proxy rỗng, đang chờ proxy được cập nhật...`);
-        sleep(5); // Chờ 5 giây rồi thử lại ở vòng lặp tiếp theo
+        sleep(5);
         return;
     }
 
-    // Logic mô phỏng hành vi người dùng
     const random = Math.random();
     if (random < 0.2) {
         firstTimeVisitor();
@@ -154,7 +171,6 @@ export function main() {
 }
 
 // --- CÁC HÀM MÔ PHỎNG HÀNH VI ---
-// Không cần truyền `proxies` vào nữa vì nó là biến toàn cục
 function firstTimeVisitor() {
     const params = getBaseParams();
     group('Hành vi: Khách lần đầu', function () {
@@ -210,20 +226,16 @@ function getBaseParams() {
     };
 
     if (proxyPool && proxyPool.length > 0) {
-        // Cải tiến: Chọn proxy ngẫu nhiên để phân phối tải đều hơn
         params.proxy = proxyPool[Math.floor(Math.random() * proxyPool.length)];
     } else {
-        // Dòng này giờ ít khả năng xảy ra hơn do có check ở đầu hàm main
         console.warn(`[VU=${__VU}] Bể proxy rỗng. Request sẽ được gửi không qua proxy.`);
     }
     return params;
 }
 
-// Hàm loadPageAssets và resolveUrl giữ nguyên như ban đầu
 function loadPageAssets(res, params, cache) {
     const discoveredLinks = new Set();
     if (!res || !res.body) {
-        // console.error(`Phản hồi không hợp lệ: ${JSON.stringify(res)}`);
         return Array.from(discoveredLinks);
     }
     
