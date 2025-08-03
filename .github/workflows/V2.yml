@@ -1,6 +1,6 @@
 # 🅾️ File: .github/workflows/Slow.yml
 
-name: 🚀 V2
+name: 🚀 Test
 
 # BẠN CẦN THÊM HOẶC SỬA LẠI KHỐI 'on' NÀY
 on:
