@@ -1,6 +1,7 @@
 # 🅾️ File: .github/workflows/Slow.yml
 
 name: 🚀 Kiểm Tra Web Slow
+run-name: 🚀 ${{ github.event.inputs.target_url }} 
 
 # BẠN CẦN THÊM HOẶC SỬA LẠI KHỐI 'on' NÀY
 on:
