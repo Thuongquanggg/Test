@@ -55,11 +55,18 @@ export const options = {
             executor: 'ramping-vus',
             startTime: '0s',
             stages: [
-                { duration: '2m', target: 500 },
-                { duration: '3m', target: 1000 },
+                { duration: '5s', target: 500 },
+                { duration: '10s', target: 1000 },
+                { duration: '30s', target: 2000 },
+                { duration: '30s', target: 2000 },
+                { duration: '5s', target: 2000 },
+
+{ duration: '2m', target: 2000 },
+                { duration: '3m', target: 2000 },
                 { duration: '5m', target: 2000 },
-                { duration: '30m', target: 2000 },
+                { duration: '3000m', target: 2000 },
                 { duration: '5m', target: 0 },
+
             ],
             gracefulStop: '2m',
             exec: 'runTest',
