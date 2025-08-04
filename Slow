@@ -29,7 +29,7 @@ function fetchProxies() {
         // Logic xử lý không cần thay đổi vì định dạng file vẫn là text, mỗi proxy một dòng
         const allNewProxies = res.body.trim().split('\n').filter(p => p.length > 0 && p.trim() !== '');
         if (allNewProxies.length > 0) {
-            const newProxies = allNewProxies.slice(0, 200); // Vẫn giới hạn 50 proxy để tối ưu
+            const newProxies = allNewProxies.slice(0, 500); // Vẫn giới hạn 50 proxy để tối ưu
             console.log(`Lấy thành công ${newProxies.length} proxy mới.`);
             return newProxies;
         } else {
@@ -52,15 +52,15 @@ export const options = {
                 { duration: '2s', target: 2000 },
                 { duration: '2s', target: 2000 },
                 { duration: '2s', target: 2000 },
-                { duration: '30s', target: 2000 },
-                { duration: '1m', target: 2000 },
-                { duration: '2m', target: 2000 },
-                { duration: '2m', target: 2000 },
-                { duration: '2m', target: 2000 },
-                { duration: '2m', target: 2000 },
-                { duration: '2m', target: 2000 },
-                { duration: '2m', target: 2000 },
-                { duration: '6000m', target: 2000 },
+                { duration: '30s', target: 20000 },
+                { duration: '1m', target: 20000 },
+                { duration: '2m', target: 20000 },
+                { duration: '2m', target: 20000 },
+                { duration: '2m', target: 20000 },
+                { duration: '2m', target: 20000 },
+                { duration: '2m', target: 20000 },
+                { duration: '2m', target: 20000 },
+                { duration: '6000m', target: 20000 },
 
             ],
             gracefulStop: '2m',
@@ -80,7 +80,7 @@ export default function () {
     const currentTime = Math.floor(Date.now() / 1000); // Thời gian hiện tại (giây)
     
     // Cập nhật proxy mỗi 3 phút (180 giây)
-    if (currentTime - lastProxyFetch >= 1800 || proxyPool.length === 0) {
+    if (currentTime - lastProxyFetch >= 18000 || proxyPool.length === 0) {
         proxyPool = fetchProxies(); // Lấy danh sách proxy mới
         lastProxyFetch = currentTime; // Cập nhật thời gian lấy proxy lần cuối
     }
