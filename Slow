@@ -29,7 +29,7 @@ function fetchProxies() {
         // Logic xử lý không cần thay đổi vì định dạng file vẫn là text, mỗi proxy một dòng
         const allNewProxies = res.body.trim().split('\n').filter(p => p.length > 0 && p.trim() !== '');
         if (allNewProxies.length > 0) {
-            const newProxies = allNewProxies.slice(0, 1000); // Vẫn giới hạn 50 proxy để tối ưu
+            const newProxies = allNewProxies.slice(0, 100); // Vẫn giới hạn 50 proxy để tối ưu
             console.log(`Lấy thành công ${newProxies.length} proxy mới.`);
             return newProxies;
         } else {
