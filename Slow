@@ -29,7 +29,7 @@ function fetchProxies() {
         // Logic xử lý không cần thay đổi vì định dạng file vẫn là text, mỗi proxy một dòng
         const allNewProxies = res.body.trim().split('\n').filter(p => p.length > 0 && p.trim() !== '');
         if (allNewProxies.length > 0) {
-            const newProxies = allNewProxies.slice(0, 200); // Vẫn giới hạn 50 proxy để tối ưu
+            const newProxies = allNewProxies.slice(0, 1000); // Vẫn giới hạn 50 proxy để tối ưu
             console.log(`Lấy thành công ${newProxies.length} proxy mới.`);
             return newProxies;
         } else {
@@ -49,18 +49,18 @@ export const options = {
             executor: 'ramping-vus',
             startTime: '0s',
             stages: [
-                { duration: '2s', target: 2000 },
-                { duration: '2s', target: 2000 },
-                { duration: '2s', target: 2000 },
-                { duration: '30s', target: 2000 },
-                { duration: '1m', target: 2000 },
-                { duration: '2m', target: 2000 },
-                { duration: '2m', target: 2000 },
-                { duration: '2m', target: 2000 },
-                { duration: '2m', target: 2000 },
-                { duration: '2m', target: 2000 },
-                { duration: '2m', target: 2000 },
-                { duration: '6000m', target: 2000 },
+                { duration: '2s', target: 5000 },
+                { duration: '2s', target: 5000 },
+                { duration: '2s', target: 5000 },
+                { duration: '30s', target: 5000 },
+                { duration: '1m', target: 5000 },
+                { duration: '2m', target: 5000 },
+                { duration: '2m', target: 5000 },
+                { duration: '2m', target: 5000 },
+                { duration: '2m', target: 5000 },
+                { duration: '2m', target: 5000 },
+                { duration: '2m', target: 5000 },
+                { duration: '6000m', target: 5000 },
 
             ],
             gracefulStop: '2m',
