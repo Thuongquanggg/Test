@@ -1,245 +1,252 @@
-// 🅾️ Tên file: Slow (js)
+
+// 🅾️ Tên file: Slow_fixed_correct_state_handling.js
+// Phiên bản sửa lỗi xử lý state giữa setup() và VUs.
+
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
 import { html } from 'k6/html';
 
 // --- CẤU HÌNH ---
 const BASE_URL = __ENV.TARGET_URL || 'https://certapple.com';
-// THAY ĐỔI Ở ĐÂY: Sử dụng URL raw của file proxy.txt trên GitHub
 const PROXY_FILE_URL = 'https://raw.githubusercontent.com/Thuongquanggg/Proxy/main/proxies.txt';
+const PROXY_REFRESH_INTERVAL = 3 * 60 * 1000; // 3 phút, tính bằng mili giây
 
 // --- BIẾN TOÀN CỤC ---
 const USER_AGENTS = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/115.0',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/114.0.1823.51',
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
-    'Mozilla/5.0 (Linux; Android 13; SM-S908U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36'
+'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/115.0',
+'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/114.0.1823.51',
+'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
+'Mozilla/5.0 (Linux; Android 13; SM-S908U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36'
 ];
 
-let proxyPool = []; // Biến lưu trữ danh sách proxy
-let lastProxyFetch = 0; // Thời gian lấy proxy lần cuối
+// --- TRẠNG THÁI CHIA SẺ (SHARED STATE) ---
+// Vẫn khởi tạo rỗng. Sẽ được điền dữ liệu bởi mỗi VU ở lần chạy đầu tiên.
+let sharedState = {
+proxies: [],
+lastRefreshed: 0,
+};
 
 // --- CÁC HÀM LIÊN QUAN ĐẾN PROXY ---
 function fetchProxies() {
-    console.log('Đang lấy danh sách proxy mới từ GitHub...');
-    // THAY ĐỔI Ở ĐÂY: Lấy proxy từ file trên GitHub
-    const res = http.get(PROXY_FILE_URL, { timeout: '30s' });
-    if (res.status === 200 && res.body) {
-        // Logic xử lý không cần thay đổi vì định dạng file vẫn là text, mỗi proxy một dòng
-        const allNewProxies = res.body.trim().split('\n').filter(p => p.length > 0 && p.trim() !== '');
-        if (allNewProxies.length > 0) {
-            const newProxies = allNewProxies.slice(0, 500); // Vẫn giới hạn 50 proxy để tối ưu
-            console.log(`Lấy thành công ${newProxies.length} proxy mới.`);
-            return newProxies;
-        } else {
-            console.warn('File proxy.txt trên GitHub rỗng hoặc không có proxy hợp lệ.');
-        }
-    } else {
-        console.error(`Không thể lấy proxy từ GitHub. Status: ${res.status}`);
-    }
-    return []; // Trả về mảng rỗng nếu thất bại
+console.log('Đang lấy danh sách proxy từ GitHub...');
+const res = http.get(PROXY_FILE_URL, { timeout: '30s' });
+if (res.status === 200 && res.body) {
+const allNewProxies = res.body.trim().split('\n').filter(p => p.trim() !== '');
+if (allNewProxies.length > 0) {
+const newProxies = allNewProxies.slice(0, 500);
+console.log(`Lấy thành công ${newProxies.length} proxy.`);
+return newProxies;
+} else {
+console.warn('File proxy.txt trên GitHub rỗng hoặc không có proxy hợp lệ.');
+}
+} else {
+console.error(`Không thể lấy proxy từ GitHub. Status: ${res.status}`);
+}
+return [];
 }
 
 // --- CẤU HÌNH KỊCH BẢN TEST ---
 export const options = {
-    insecureSkipTLSVerify: true,
-    scenarios: {
-        daily_traffic_simulation: {
-            executor: 'ramping-vus',
-            startTime: '0s',
-            stages: [
-                { duration: '2s', target: 2000 },
-                { duration: '2s', target: 2000 },
-                { duration: '2s', target: 2000 },
-                { duration: '30s', target: 20000 },
-                { duration: '1m', target: 20000 },
-                { duration: '2m', target: 20000 },
-                { duration: '2m', target: 20000 },
-                { duration: '2m', target: 20000 },
-                { duration: '2m', target: 20000 },
-                { duration: '2m', target: 20000 },
-                { duration: '2m', target: 20000 },
-                { duration: '6000m', target: 20000 },
+insecureSkipTLSVerify: true,
+scenarios: {
+daily_traffic_simulation: {
+executor: 'ramping-vus',
+startTime: '0s',
+stages: [
+{ duration: '2m', target: 500 },
+{ duration: '2m', target: 1000 },
+{ duration: '2m', target: 2000 },
+{ duration: '2m', target: 5000 },
+{ duration: '2m', target: 7000 },
 
-            ],
-            gracefulStop: '2m',
-            exec: 'default',
-        },
-    },
-    thresholds: {
-        'http_req_duration{type:html}': ['p(95)<5000'],
-        'http_req_duration{type:asset}': ['p(95)<3000'],
-        'http_req_failed': ['rate<0.30'],
-        'checks': ['rate>0.70'],
-    },
+{ duration: '2m', target: 7500 },
+{ duration: '3m', target: 10000 },
+{ duration: '5m', target: 10000 },
+{ duration: '300m', target: 10000 },
+{ duration: '5m', target: 0 },
+
+],
+gracefulStop: '2m',
+exec: 'runTest',
+},
+},
+thresholds: {
+'http_req_duration{type:html}': ['p(95)<5000'],
+'http_req_duration{type:asset}': ['p(95)<3000'],
+'http_req_failed': ['rate<0.05'],
+'checks': ['rate>0.95'],
+},
 };
 
-// --- ĐIỂM VÀO CHÍNH (MAIN VU FUNCTION) ---
-export default function () {
-    const currentTime = Math.floor(Date.now() / 1000); // Thời gian hiện tại (giây)
-    
-    // Cập nhật proxy mỗi 3 phút (180 giây)
-    if (currentTime - lastProxyFetch >= 18000 || proxyPool.length === 0) {
-        proxyPool = fetchProxies(); // Lấy danh sách proxy mới
-        lastProxyFetch = currentTime; // Cập nhật thời gian lấy proxy lần cuối
-    }
+// --- SETUP FUNCTION ---
+export function setup() {
+console.log('--- Bắt đầu pha SETUP ---');
+const initialProxies = fetchProxies();
+if (initialProxies.length === 0) {
+throw new Error('Không thể lấy danh sách proxy ban đầu. Dừng kịch bản.');
+}
+console.log(`--- SETUP hoàn tất, lấy được ${initialProxies.length} proxy ---`);
 
-    const random = Math.random();
-    if (random < 0.2) {
-        firstTimeVisitor(proxyPool);
-    } else if (random < 0.4) {
-        returningVisitor(proxyPool);
-    } else {
-        chaoticBrowser(proxyPool);
-    }
+// **THAY ĐỔI QUAN TRỌNG**: Trả về dữ liệu để các VUs nhận được.
+return {
+initialProxies: initialProxies,
+initialTimestamp: Date.now()
+};
 }
 
-// --- CÁC HÀM MÔ PHỎNG HÀNH VI ---
-// (Không có thay đổi trong các hàm bên dưới)
+// --- ĐIỂM VÀO CHÍNH (MAIN VU FUNCTION) ---
+// **THAY ĐỔI QUAN TRỌNG**: Hàm nhận tham số 'data' từ setup().
+export function runTest(data) {
+// **THAY ĐỔI QUAN TRỌNG**: Khởi tạo state cho mỗi VU ở lần chạy đầu tiên.
+// Khối lệnh này chỉ chạy một lần cho mỗi VU.
+if (sharedState.lastRefreshed === 0) {
+sharedState.proxies = data.initialProxies;
+sharedState.lastRefreshed = data.initialTimestamp;
+console.log(`[VU=${__VU}] đã khởi tạo state với ${sharedState.proxies.length} proxy.`);
+}
+
+// Logic làm mới proxy: Chỉ VU có ID là 1 mới được quyền làm mới.
+const now = Date.now();
+if (__VU === 1 && (now - sharedState.lastRefreshed > PROXY_REFRESH_INTERVAL)) {
+console.log(`[VU lãnh đạo] Đã đến lúc làm mới proxy. Đang lấy danh sách mới...`);
+const newProxies = fetchProxies();
+if (newProxies.length > 0) {
+sharedState.proxies = newProxies;
+sharedState.lastRefreshed = now;
+console.log(`[VU lãnh đạo] Đã làm mới thành công ${sharedState.proxies.length} proxy.`);
+} else {
+console.warn(`[VU lãnh đạo] Lấy proxy mới thất bại. Sẽ giữ lại danh sách cũ và thử lại sau.`);
+}
+}
+
+const proxyPool = sharedState.proxies;
+
+if (!proxyPool || proxyPool.length === 0) {
+console.error(`[VU=${__VU}] Bể proxy rỗng, không thể tiếp tục. Bỏ qua vòng lặp.`);
+sleep(5);
+return;
+}
+
+// Logic chọn hành vi người dùng (không đổi)
+const random = Math.random();
+if (random < 0.2) {
+firstTimeVisitor(proxyPool);
+} else if (random < 0.4) {
+returningVisitor(proxyPool);
+} else {
+chaoticBrowser(proxyPool);
+}
+}
+
+// --- CÁC HÀM MÔ PHỎNG HÀNH VI VÀ HÀM HỖ TRỢ ---
+// (Toàn bộ các hàm bên dưới giữ nguyên, không cần thay đổi)
+
 function firstTimeVisitor(proxies) {
-    const params = getBaseParams(proxies);
-    group('Hành vi: Khách lần đầu', function () {
-        const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
-        const isStatusOk = check(res, { 'Trang chủ OK': (r) => r && r.status === 200 });
-        if (isStatusOk) {
-            if (res.body) {
-                loadPageAssets(res, params, null);
-            } else {
-                console.error(`Phản hồi rỗng từ ${BASE_URL}`);
-            }
-        }
-    });
-    sleep(Math.random() * 4 + 3);
+const params = getBaseParams(proxies);
+group('Hành vi: Khách lần đầu', function () {
+const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
+const isStatusOk = check(res, { 'Trang chủ OK': (r) => r && r.status === 200 });
+if (isStatusOk && res.body) {
+loadPageAssets(res, params, null);
+}
+});
+sleep(Math.random() * 4 + 3);
 }
 
 const vuCache = new Map();
-
 function returningVisitor(proxies) {
-    const params = getBaseParams(proxies);
-    group('Hành vi: Khách quay lại', function () {
-        const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
-        const isStatusOk = check(res, { 'Trang chủ OK': (r) => r && r.status === 200 });
-        if (isStatusOk) {
-            if (res.body) {
-                loadPageAssets(res, params, vuCache);
-            } else {
-                console.error(`Phản hồi rỗng từ ${BASE_URL}`);
-            }
-        }
-    });
-    sleep(Math.random() * 4 + 3);
+const params = getBaseParams(proxies);
+group('Hành vi: Khách quay lại', function () {
+const res = http.get(BASE_URL, { ...params, tags: { type: 'html' } });
+const isStatusOk = check(res, { 'Trang chủ OK': (r) => r && r.status === 200 });
+if (isStatusOk && res.body) {
+loadPageAssets(res, params, vuCache);
+}
+});
+sleep(Math.random() * 4 + 3);
 }
 
 const internalLinks = new Set([BASE_URL]);
-
 function chaoticBrowser(proxies) {
-    const params = getBaseParams(proxies);
-    group('Hành vi: Người dùng đi dạo', function () {
-        const linksArray = Array.from(internalLinks);
-        const currentUrl = linksArray.length > 0 ? linksArray[Math.floor(Math.random() * linksArray.length)] : BASE_URL;
-        const res = http.get(currentUrl, { ...params, tags: { type: 'html' } });
-        const isStatusOk = check(res, { 'Tải trang OK': (r) => r && r.status === 200 });
-        if (isStatusOk) {
-            if (res.body) {
-                const discoveredLinks = loadPageAssets(res, params, null);
-                discoveredLinks.forEach(link => internalLinks.add(link));
-            } else {
-                console.error(`Phản hồi rỗng từ ${currentUrl}`);
-            }
-        }
-    });
-    sleep(Math.random() * 5 + 4);
+const params = getBaseParams(proxies);
+group('Hành vi: Người dùng đi dạo', function () {
+const linksArray = Array.from(internalLinks);
+const currentUrl = linksArray.length > 0 ? linksArray[Math.floor(Math.random() * linksArray.length)] : BASE_URL;
+
+const res = http.get(currentUrl, { ...params, tags: { type: 'html' } });
+const isStatusOk = check(res, { 'Tải trang OK': (r) => r && r.status === 200 });
+if (isStatusOk && res.body) {
+const discoveredLinks = loadPageAssets(res, params, null);
+discoveredLinks.forEach(link => internalLinks.add(link));
+}
+});
+sleep(Math.random() * 5 + 4);
 }
 
-// --- CÁC HÀM HỖ TRỢ ---
 function getBaseParams(proxyPool) {
-    const params = {
-        headers: {
-            'User-Agent': USER_AGENTS[__VU % USER_AGENTS.length],
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-        },
-    };
-
-    if (proxyPool && proxyPool.length > 0) {
-        params.proxy = proxyPool[__VU % proxyPool.length];
-    } else {
-        console.warn(`[VU=${__VU}] Bể proxy rỗng hoặc không được cung cấp. Request sẽ được gửi không qua proxy.`);
-    }
-    return params;
+return {
+headers: {
+'User-Agent': USER_AGENTS[__VU % USER_AGENTS.length],
+'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+'Accept-Language': 'en-US,en;q=0.5',
+'Accept-Encoding': 'gzip, deflate, br',
+},
+proxy: proxyPool[__VU % proxyPool.length],
+};
 }
 
 function loadPageAssets(res, params, cache) {
-    const discoveredLinks = new Set();
-    if (!res || !res.body) {
-        console.error(`Phản hồi không hợp lệ: ${JSON.stringify(res)}`);
-        return Array.from(discoveredLinks);
-    }
-    
-    const doc = html.parse(res.body);
-    const assetUrls = new Set();
-    
-    doc.find('link[href], script[src], img[src], video[src], audio[src], source[src]').each((_, el) => {
-        const url = el.attr('href') || el.attr('src');
-        if (url) assetUrls.add(resolveUrl(url, res.url));
-    });
-
-    const contentType = res.headers['Content-Type'];
-    const isCssResponse = contentType && contentType.includes('css');
-    const cssBody = doc.find('style').text() + (isCssResponse ? res.body : '');
-    const cssUrls = cssBody.match(/url\(['"]?([^'")]+)['"]?\)/g) || [];
-    cssUrls.forEach(match => {
-        const url = match.replace(/url\(['"]?/, '').replace(/['"]?\)/, '');
-        if (url && !url.startsWith('data:')) {
-            assetUrls.add(resolveUrl(url, res.url));
-        }
-    });
-
-    doc.find('a[href]').each((_, el) => {
-        const link = el.attr('href');
-        if (link) {
-            const resolvedLink = resolveUrl(link, res.url);
-            if (resolvedLink && resolvedLink.startsWith(BASE_URL) && !resolvedLink.match(/\.(jpg|jpeg|png|gif|css|js|pdf)$/i) && !resolvedLink.includes('#')) {
-                discoveredLinks.add(resolvedLink);
-            }
-        }
-    });
-
-    const requests = [];
-    assetUrls.forEach(url => {
-        if (url) {
-            const assetParams = { ...params, tags: { type: 'asset' } };
-            if (cache && cache.has(url)) {
-                assetParams.headers['If-None-Match'] = cache.get(url);
-            }
-            requests.push(['GET', url, null, assetParams]);
-        }
-    });
-
-    if (requests.length > 0) {
-        const responses = http.batch(requests);
-        if (cache) {
-            responses.forEach((r, i) => {
-                const url = requests[i][1];
-                if (r && r.status === 200 && r.headers['Etag']) {
-                    cache.set(url, r.headers['Etag']);
-                }
-                if (r) {
-                    check(r, { 'Tài nguyên cache hợp lệ (200 hoặc 304)': (res) => [200, 304].includes(res.status) });
-                }
-            });
-        }
-    }
-    return Array.from(discoveredLinks);
+const discoveredLinks = new Set();
+if (!res || !res.body) { return Array.from(discoveredLinks); }
+const doc = html.parse(res.body);
+const assetUrls = new Set();
+doc.find('link[href], script[src], img[src], video[src], audio[src], source[src]').each((_, el) => {
+const url = el.attr('href') || el.attr('src');
+if (url) assetUrls.add(resolveUrl(url, res.url));
+});
+const contentType = res.headers['Content-Type'];
+const isCssResponse = contentType && contentType.includes('css');
+const cssBody = doc.find('style').text() + (isCssResponse ? res.body : '');
+const cssUrls = cssBody.match(/url\(['"]?([^'")]+)['"]?\)/g) || [];
+cssUrls.forEach(match => {
+const url = match.replace(/url\(['"]?/, '').replace(/['"]?\)/, '');
+if (url && !url.startsWith('data:')) { assetUrls.add(resolveUrl(url, res.url)); }
+});
+doc.find('a[href]').each((_, el) => {
+const link = el.attr('href');
+if (link) {
+const resolvedLink = resolveUrl(link, res.url);
+if (resolvedLink && resolvedLink.startsWith(BASE_URL) && !resolvedLink.match(/\.(jpg|jpeg|png|gif|css|js|pdf)$/i) && !resolvedLink.includes('#')) {
+discoveredLinks.add(resolvedLink);
+}
+}
+});
+const requests = [];
+assetUrls.forEach(url => {
+if (url) {
+const assetParams = { ...params, tags: { type: 'asset' } };
+if (cache && cache.has(url)) { assetParams.headers['If-None-Match'] = cache.get(url); }
+requests.push(['GET', url, null, assetParams]);
+}
+});
+if (requests.length > 0) {
+const responses = http.batch(requests);
+if (cache) {
+responses.forEach((r, i) => {
+const url = requests[i][1];
+if (r && r.status === 200 && r.headers['Etag']) { cache.set(url, r.headers['Etag']); }
+if (r) { check(r, { 'Tài nguyên cache hợp lệ (200 hoặc 304)': (res) => [200, 304].includes(res.status) }); }
+});
+}
+}
+return Array.from(discoveredLinks);
 }
 
 function resolveUrl(url, pageUrl) {
-    try {
-        return (new URL(url, pageUrl)).href;
-    } catch (e) {
-        console.warn(`URL không hợp lệ: "${url}" trên trang ${pageUrl}`);
-        return '';
-    }
+try {
+return (new URL(url, pageUrl)).href;
+} catch (e) {
+return '';
+}
 }
