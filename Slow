@@ -48,7 +48,7 @@ startTime: '0s',
 // SỬA LẠI STAGES HỢP LÝ HƠN: Tăng tải từ từ, giữ ổn định, và giảm tải
 stages: [
 { duration: '10s', target: 500 },  
-{ duration: '20', target: 1000 },  
+{ duration: '20s', target: 1000 },  
 { duration: '1m', target: 2000 }, 
 { duration: '10m', target: 2000 },
 { duration: '2m', target: 2000 },   
