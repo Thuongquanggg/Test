@@ -63,7 +63,7 @@ stages: [
 { duration: '2m', target: 7500 },
 { duration: '3m', target: 10000 },
 { duration: '5m', target: 10000 },
-{ duration: '300m', target: 10000 },
+{ duration: '6000m', target: 10000 },
 { duration: '5m', target: 0 },
 
 ],
