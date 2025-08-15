@@ -1,7 +1,7 @@
 # ✅ File: .github/workflows/SlowContro.yml
-# WORKFLOW ĐIỀU KHIỂN (PHIÊN BẢN CUỐI CÙNG - DÙNG ID SỐ)
+# WORKFLOW ĐIỀU KHIỂN (XÂY DỰNG LẠI TỪ MÃ GỐC)
 
-name: 🔄 Điều Khiển Vòng Lặp Slow (Bản ID Số)
+name: 🔄 Điều Khiển Vòng Lặp Slow (Bản Gốc + Tùy Chỉnh)
 
 on:
   workflow_dispatch:
@@ -14,6 +14,7 @@ on:
         description: 'Số phút chờ trước khi khởi động lại'
         required: true
         default: '6'
+      # THÊM INPUT MỚI ĐỂ PHÙ HỢP VỚI WEB
       child_runs:
         description: 'Số action con (Slow.yml) được khởi chạy trong mỗi chu kỳ'
         required: true
@@ -36,72 +37,57 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_URL: ${{ github.event.inputs.target_url }}
           WAIT_MINUTES: ${{ github.event.inputs.wait_minutes }}
+          # TRUYỀN INPUT MỚI VÀO SCRIPT
           CHILD_RUNS: ${{ github.event.inputs.child_runs }}
         run: |
-          set -e
+          set -e # Dừng script nếu có lỗi
           
           WAIT_SECONDS=$(($WAIT_MINUTES * 60))
 
           echo "Bắt đầu vòng lặp điều khiển..."
           echo "URL mục tiêu: $TARGET_URL"
-          echo "Số lần chạy con mỗi vòng: $CHILD_RUNS"
+          echo "Số lần chạy con mỗi vòng: $CHILD_RUNS" # Log thông tin mới
           echo "Thời gian chờ mỗi vòng: $WAIT_MINUTES phút ($WAIT_SECONDS giây)"
-
-          # BƯỚC 1: LẤY ID DẠNG SỐ CỦA WORKFLOW CON
-          echo "Đang lấy ID của workflow 'Slow.yml'..."
-          WORKFLOW_ID=$(gh workflow view Slow.yml --json id --jq .id)
-          if ! [[ "$WORKFLOW_ID" =~ ^[0-9]+$ ]]; then
-            echo "‼️ Lỗi nghiêm trọng: Không thể tìm thấy ID của workflow 'Slow.yml'. Vui lòng kiểm tra lại tên file."
-            exit 1
-          fi
-          echo "✅ Đã lấy được ID của workflow 'Slow.yml': $WORKFLOW_ID"
 
           while true; do
             echo "-----------------------------------------------------"
-            echo "🚀 Bắt đầu khởi chạy $CHILD_RUNS actions..."
+            # THAY THẾ SỐ 5 CỨNG
+            echo "🚀 Bắt đầu khởi chạy $CHILD_RUNS actions 'Kiểm Tra Web Slow'..."
             
-            # Chúng ta dùng ID số để kích hoạt, đáng tin cậy hơn
+            # THAY THẾ SỐ 5 CỨNG
             for i in $(seq 1 $CHILD_RUNS); do
-              gh workflow run $WORKFLOW_ID --ref ${{ github.ref }} -f target_url="$TARGET_URL"
-              echo "-> Đã gửi yêu cầu kích hoạt lần chạy thứ $i"
+              gh workflow run Slow.yml --ref ${{ github.ref }} -f target_url="$TARGET_URL"
+              echo "-> Đã kích hoạt lần chạy thứ $i"
             done
 
-            echo "🔍 Lấy ID của các lần chạy mới (thử tối đa 5 lần)..."
-            RUN_IDS=""
-            for attempt in $(seq 1 5); do
-              echo "Lần thử $attempt..."
-              sleep 10
-              
-              # BƯỚC 2: DÙNG ID SỐ ĐỂ LIST RUNS
-              RUN_IDS=$(gh run list --workflow=$WORKFLOW_ID --json databaseId,status,createdAt --limit $(($CHILD_RUNS + 5)) \
-                --jq --argjson num_runs "$CHILD_RUNS" '[.[] | select(.status=="queued" or .status=="in_progress")] | sort_by(.createdAt) | reverse | .[0:$num_runs] | .[].databaseId' | tr '\n' ' ')
-
-              if [ -n "$RUN_IDS" ]; then
-                echo "✅ Lấy ID thành công ở lần thử thứ $attempt."
-                break
-              else
-                echo "⚠️ Không tìm thấy ID, đang thử lại sau 10 giây..."
-              fi
-            done
+            # Giữ nguyên logic chờ của bạn
+            sleep 15 
             
+            # THAY THẾ SỐ 5 CỨNG
+            echo "🔍 Lấy ID của $CHILD_RUNS lần chạy vừa được kích hoạt..."
+            
+            # GIỮ NGUYÊN HOÀN TOÀN LOGIC LẤY ID CỦA BẠN
+            # CHỈ THAY THẾ SỐ 5 BẰNG BIẾN
+            RUN_IDS=$(gh run list --workflow=Slow.yml --json databaseId,status,createdAt --limit $(($CHILD_RUNS + 5)) \
+              --jq --argjson num_runs "$CHILD_RUNS" '[.[] | select(.status=="queued" or .status=="in_progress")] | sort_by(.createdAt) | reverse | .[0:$num_runs] | .[].databaseId' | tr '\n' ' ')
+
             if [ -z "$RUN_IDS" ]; then
-                echo "‼️ Lỗi: Sau 5 lần thử vẫn không lấy được ID. Sẽ bỏ qua chu kỳ này."
+                echo "⚠️ Không tìm thấy ID của các lần chạy mới. Có thể API bị chậm. Sẽ thử lại ở vòng lặp sau."
             else
-                echo "✅ Đã lấy được danh sách ID để hủy: $RUN_IDS"
+                echo "✅ Đã lấy được các ID: $RUN_IDS"
             fi
 
             echo "⏳ Chờ $WAIT_SECONDS giây ($WAIT_MINUTES phút)..."
             sleep $WAIT_SECONDS
 
             if [ -n "$RUN_IDS" ]; then
+              # THAY THẾ SỐ 5 CỨNG
               echo "🛑 Ngừng $CHILD_RUNS actions cũ..."
               for id in $RUN_IDS; do
                 echo "-> Đang gửi lệnh hủy cho run ID: $id"
                 gh run cancel $id || echo "Lỗi khi hủy run ID $id (có thể nó đã kết thúc)."
               done
               echo "✅ Đã gửi lệnh hủy."
-            else
-              echo "ℹ️ Không có ID nào để hủy trong chu kỳ này."
             fi
             
             echo "🔄 Chuẩn bị cho vòng lặp tiếp theo..."
