@@ -1,7 +1,12 @@
 # ✅ File: .github/workflows/SlowContro.yml
-# WORKFLOW ĐIỀU KHIỂN VÒNG LẶP (ĐÃ SỬA LỖI)
+# WORKFLOW ĐIỀU KHIỂN VÒNG LẶP (CÓ THỂ TÙY CHỈNH SỐ LƯỢNG)
 
 name: 🔄 Điều Khiển Vòng Lặp Slow
+
+# THAY ĐỔI 1: Thêm concurrency để đảm bảo chỉ có 1 controller chạy tại một thời điểm
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
 
 on:
   workflow_dispatch:
@@ -14,12 +19,19 @@ on:
         description: 'Số phút chờ trước khi khởi động lại'
         required: true
         default: '6'
+      # THAY ĐỔI 2: Thêm input mới cho số lượng worker
+      child_runs:
+        description: 'Số lần chạy con (worker) được khởi chạy mỗi vòng lặp'
+        required: true
+        default: '5'
 
 jobs:
   loop_controller:
     name: 🔄 Vòng Lặp Điều Khiển
     runs-on: ubuntu-latest
-    
+    # Thêm timeout để tránh chạy vô hạn ngoài ý muốn (tối đa 6 giờ)
+    timeout-minutes: 350
+
     permissions:
       actions: write
 
@@ -27,36 +39,39 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Bắt đầu vòng lặp vô tận
+      - name: Bắt đầu vòng lặp
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_URL: ${{ github.event.inputs.target_url }}
-          # THAY ĐỔI 1: Chỉ truyền số phút vào, không tính toán ở đây
           WAIT_MINUTES: ${{ github.event.inputs.wait_minutes }}
+          # THAY ĐỔI 3: Truyền input mới vào môi trường của script
+          CHILD_RUNS: ${{ github.event.inputs.child_runs }}
         run: |
           set -e # Dừng script nếu có lỗi
-          
-          # THAY ĐỔI 2: Thực hiện phép tính nhân bên trong script shell
+
           WAIT_SECONDS=$(($WAIT_MINUTES * 60))
 
           echo "Bắt đầu vòng lặp điều khiển..."
           echo "URL mục tiêu: $TARGET_URL"
+          echo "Số worker mỗi vòng: $CHILD_RUNS"
           echo "Thời gian chờ mỗi vòng: $WAIT_MINUTES phút ($WAIT_SECONDS giây)"
 
           while true; do
             echo "-----------------------------------------------------"
-            echo "🚀 Bắt đầu khởi chạy 5 actions 'Kiểm Tra Web Slow'..."
-            
-            for i in $(seq 1 5); do
+            # THAY ĐỔI 4: Sử dụng biến CHILD_RUNS để điều khiển vòng lặp
+            echo "🚀 Bắt đầu khởi chạy $CHILD_RUNS actions 'Kiểm Tra Web Slow'..."
+
+            for i in $(seq 1 $CHILD_RUNS); do
               gh workflow run Slow.yml --ref ${{ github.ref }} -f target_url="$TARGET_URL"
               echo "-> Đã kích hoạt lần chạy thứ $i"
             done
 
-            sleep 15 
-            
-            echo "🔍 Lấy ID của 5 lần chạy vừa được kích hoạt..."
-            RUN_IDS=$(gh run list --workflow=Slow.yml --json databaseId,status,createdAt --limit 10 \
-              --jq '[.[] | select(.status=="queued" or .status=="in_progress")] | sort_by(.createdAt) | reverse | .[0:5] | .[].databaseId' | tr '\n' ' ')
+            sleep 15
+
+            # THAY ĐỔI 5: Sử dụng biến CHILD_RUNS để lấy đúng số lượng ID
+            echo "🔍 Lấy ID của $CHILD_RUNS lần chạy vừa được kích hoạt..."
+            RUN_IDS=$(gh run list --workflow=Slow.yml --json databaseId,status,createdAt --limit $(($CHILD_RUNS + 5)) \
+              --jq "[.[] | select(.status==\"queued\" or .status==\"in_progress\")] | sort_by(.createdAt) | reverse | .[0:$CHILD_RUNS] | .[].databaseId" | tr '\n' ' ')
 
             if [ -z "$RUN_IDS" ]; then
                 echo "⚠️ Không tìm thấy ID của các lần chạy mới. Có thể API bị chậm. Sẽ thử lại ở vòng lặp sau."
@@ -64,18 +79,17 @@ jobs:
                 echo "✅ Đã lấy được các ID: $RUN_IDS"
             fi
 
-            # THAY ĐỔI 3: Sử dụng biến đã được tính toán
             echo "⏳ Chờ $WAIT_SECONDS giây ($WAIT_MINUTES phút)..."
             sleep $WAIT_SECONDS
 
             if [ -n "$RUN_IDS" ]; then
-              echo "🛑 Ngừng 5 actions cũ..."
+              echo "🛑 Ngừng $CHILD_RUNS actions cũ..."
               for id in $RUN_IDS; do
                 echo "-> Đang gửi lệnh hủy cho run ID: $id"
                 gh run cancel $id || echo "Lỗi khi hủy run ID $id (có thể nó đã kết thúc)."
               done
               echo "✅ Đã gửi lệnh hủy."
             fi
-            
+
             echo "🔄 Chuẩn bị cho vòng lặp tiếp theo..."
           done
