@@ -1,0 +1,84 @@
+
+# ✅ File: .github/workflows/SlowContro.yml
+# WORKFLOW ĐIỀU KHIỂN VÒNG LẶP
+
+name: 🔄 Điều Khiển Vòng Lặp Slow
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'URL mục tiêu cho các lần test'
+        required: true
+        default: 'https://certapple.com'
+      wait_minutes:
+        description: 'Số phút chờ trước khi khởi động lại'
+        required: true
+        default: '6'
+
+jobs:
+  loop_controller:
+    name: 🔄 Vòng Lặp Điều Khiển
+    runs-on: ubuntu-latest
+    
+    # RẤT QUAN TRỌNG: Cần quyền 'write' để có thể hủy các workflow khác
+    permissions:
+      actions: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Bắt đầu vòng lặp vô tận
+        # Sử dụng GitHub CLI (gh) để quản lý các workflow khác
+        # Vòng lặp này sẽ chạy cho đến khi job bị timeout (thường là 6 tiếng) hoặc bị hủy thủ công
+        env:
+          # Cung cấp token để gh có quyền thực thi
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_URL: ${{ github.event.inputs.target_url }}
+          WAIT_SECONDS: ${{ github.event.inputs.wait_minutes * 60 }}
+        run: |
+          set -e # Dừng script nếu có lỗi
+          
+          echo "Bắt đầu vòng lặp điều khiển..."
+          echo "URL mục tiêu: $TARGET_URL"
+          echo "Thời gian chờ mỗi vòng: ${{ github.event.inputs.wait_minutes }} phút ($WAIT_SECONDS giây)"
+
+          while true; do
+            echo "-----------------------------------------------------"
+            echo "🚀 Bắt đầu khởi chạy 5 actions 'Kiểm Tra Web Slow'..."
+            
+            # Chạy 5 workflow con
+            for i in $(seq 1 5); do
+              gh workflow run Slow.yml --ref ${{ github.ref }} -f target_url="$TARGET_URL"
+              echo "-> Đã kích hoạt lần chạy thứ $i"
+            done
+
+            # Chờ một chút để API của GitHub ghi nhận các lần chạy mới
+            sleep 15 
+            
+            echo "🔍 Lấy ID của 5 lần chạy vừa được kích hoạt..."
+            # Lấy ID của 5 lần chạy mới nhất đang ở trạng thái 'queued' hoặc 'in_progress'
+            RUN_IDS=$(gh run list --workflow=Slow.yml --json databaseId,status,createdAt --limit 10 \
+              --jq '[.[] | select(.status=="queued" or .status=="in_progress")] | sort_by(.createdAt) | reverse | .[0:5] | .[].databaseId' | tr '\n' ' ')
+
+            if [ -z "$RUN_IDS" ]; then
+                echo "⚠️ Không tìm thấy ID của các lần chạy mới. Có thể API bị chậm. Sẽ thử lại ở vòng lặp sau."
+            else
+                echo "✅ Đã lấy được các ID: $RUN_IDS"
+            fi
+
+            echo "⏳ Chờ $WAIT_SECONDS giây (${{ github.event.inputs.wait_minutes }} phút)..."
+            sleep $WAIT_SECONDS
+
+            if [ -n "$RUN_IDS" ]; then
+              echo "🛑 Ngừng 5 actions cũ..."
+              for id in $RUN_IDS; do
+                echo "-> Đang gửi lệnh hủy cho run ID: $id"
+                gh run cancel $id || echo "Lỗi khi hủy run ID $id (có thể nó đã kết thúc)."
+              done
+              echo "✅ Đã gửi lệnh hủy."
+            fi
+            
+            echo "🔄 Chuẩn bị cho vòng lặp tiếp theo..."
+          done
