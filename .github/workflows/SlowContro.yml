@@ -1,7 +1,7 @@
 # ✅ File: .github/workflows/SlowContro.yml
-# WORKFLOW ĐIỀU KHIỂN (PHIÊN BẢN SIÊU ỔN ĐỊNH - DÙNG GREP + AWK)
+# WORKFLOW ĐIỀU KHIỂN VÒNG LẶP
 
-name: 🔄 Điều Khiển Vòng Lặp Slow (Bản Siêu Ổn Định)
+name: 🔄 Điều Khiển Vòng Lặp K6
 
 on:
   workflow_dispatch:
@@ -14,16 +14,13 @@ on:
         description: 'Số phút chờ trước khi khởi động lại'
         required: true
         default: '6'
-      child_runs:
-        description: 'Số action con (Slow.yml) được khởi chạy trong mỗi chu kỳ'
-        required: true
-        default: '5'
 
 jobs:
   loop_controller:
     name: 🔄 Vòng Lặp Điều Khiển
     runs-on: ubuntu-latest
     
+    # RẤT QUAN TRỌNG: Cần quyền 'write' để có thể hủy các workflow khác
     permissions:
       actions: write
 
@@ -32,73 +29,55 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Bắt đầu vòng lặp vô tận
+        # Sử dụng GitHub CLI (gh) để quản lý các workflow khác
+        # Vòng lặp này sẽ chạy cho đến khi job bị timeout (thường là 6 tiếng) hoặc bị hủy thủ công
         env:
+          # Cung cấp token để gh có quyền thực thi
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_URL: ${{ github.event.inputs.target_url }}
-          WAIT_MINUTES: ${{ github.event.inputs.wait_minutes }}
-          CHILD_RUNS: ${{ github.event.inputs.child_runs }}
+          WAIT_SECONDS: ${{ github.event.inputs.wait_minutes * 60 }}
         run: |
-          set -e
+          set -e # Dừng script nếu có lỗi
           
-          WAIT_SECONDS=$(($WAIT_MINUTES * 60))
-
           echo "Bắt đầu vòng lặp điều khiển..."
           echo "URL mục tiêu: $TARGET_URL"
-          echo "Số lần chạy con mỗi vòng: $CHILD_RUNS"
-          echo "Thời gian chờ mỗi vòng: $WAIT_MINUTES phút ($WAIT_SECONDS giây)"
-
-          RUN_IDS_TO_CANCEL=""
+          echo "Thời gian chờ mỗi vòng: ${{ github.event.inputs.wait_minutes }} phút ($WAIT_SECONDS giây)"
 
           while true; do
             echo "-----------------------------------------------------"
+            echo "🚀 Bắt đầu khởi chạy 5 actions 'Kiểm Tra Web Slow'..."
             
-            # Dừng các action từ vòng lặp TRƯỚC (nếu có)
-            if [ -n "$RUN_IDS_TO_CANCEL" ]; then
-              echo "🛑 Bắt đầu dừng $CHILD_RUNS actions từ vòng lặp trước..."
-              for id in $RUN_IDS_TO_CANCEL; do
-                echo "-> Đang gửi lệnh hủy cho run ID: $id"
-                gh run cancel $id || echo "Lỗi khi hủy run ID $id (có thể nó đã kết thúc hoặc không tồn tại)."
-              done
-              echo "✅ Đã gửi lệnh hủy cho các action cũ."
-            else
-              echo "ℹ️ Vòng lặp đầu tiên, không có action cũ để dừng."
-            fi
-
-            # THAY ĐỔI LỚN NHẤT: DÙNG PHƯƠNG PHÁP 2 BƯỚC (GREP + AWK)
-            echo "🚀 Bắt đầu khởi chạy $CHILD_RUNS actions mới và lấy ID..."
-            
-            NEW_RUN_IDS=""
-            
-            for i in $(seq 1 $CHILD_RUNS); do
-              # Chạy workflow và chụp lại TOÀN BỘ output
-              RUN_OUTPUT=$(gh workflow run Slow.yml --ref ${{ github.ref }} -f target_url="$TARGET_URL")
-              
-              # Bước 1: Dùng `grep -o` để lọc ra chỉ chuỗi URL từ output
-              RUN_URL=$(echo "$RUN_OUTPUT" | grep -o 'https://github.com/.*/actions/runs/[0-9]*')
-              
-              if [ -n "$RUN_URL" ]; then
-                # Bước 2: Sau khi đã có URL sạch, dùng `awk` để lấy ID
-                RUN_ID=$(echo "$RUN_URL" | awk -F'/' '{print $NF}')
-                echo "-> Đã kích hoạt lần chạy $i với ID: $RUN_ID"
-                NEW_RUN_IDS="$NEW_RUN_IDS $RUN_ID"
-              else
-                echo "⚠️ Lỗi: Không thể trích xuất URL từ output. Full output từ gh:"
-                echo "$RUN_OUTPUT"
-              fi
+            # Chạy 5 workflow con
+            for i in $(seq 1 5); do
+              gh workflow run Slow.yml --ref ${{ github.ref }} -f target_url="$TARGET_URL"
+              echo "-> Đã kích hoạt lần chạy thứ $i"
             done
+
+            # Chờ một chút để API của GitHub ghi nhận các lần chạy mới
+            sleep 15 
             
-            # Gán danh sách ID mới vào biến sẽ được dùng để hủy ở vòng lặp sau
-            RUN_IDS_TO_CANCEL=$(echo "$NEW_RUN_IDS" | xargs) # xargs để xóa khoảng trắng thừa
-            
-            if [ -z "$RUN_IDS_TO_CANCEL" ]; then
-                echo "‼️ Lỗi nghiêm trọng: Không thể kích hoạt và lấy ID của bất kỳ action con nào. Sẽ thử lại sau $WAIT_MINUTES phút."
+            echo "🔍 Lấy ID của 5 lần chạy vừa được kích hoạt..."
+            # Lấy ID của 5 lần chạy mới nhất đang ở trạng thái 'queued' hoặc 'in_progress'
+            RUN_IDS=$(gh run list --workflow=Slow.yml --json databaseId,status,createdAt --limit 10 \
+              --jq '[.[] | select(.status=="queued" or .status=="in_progress")] | sort_by(.createdAt) | reverse | .[0:5] | .[].databaseId' | tr '\n' ' ')
+
+            if [ -z "$RUN_IDS" ]; then
+                echo "⚠️ Không tìm thấy ID của các lần chạy mới. Có thể API bị chậm. Sẽ thử lại ở vòng lặp sau."
             else
-                echo "✅ Đã lấy được các ID để hủy ở vòng lặp sau: $RUN_IDS_TO_CANCEL"
+                echo "✅ Đã lấy được các ID: $RUN_IDS"
             fi
 
-            # Chờ đợi để các action mới chạy
-            echo "⏳ Chờ $WAIT_SECONDS giây ($WAIT_MINUTES phút)..."
+            echo "⏳ Chờ $WAIT_SECONDS giây (${{ github.event.inputs.wait_minutes }} phút)..."
             sleep $WAIT_SECONDS
+
+            if [ -n "$RUN_IDS" ]; then
+              echo "🛑 Ngừng 5 actions cũ..."
+              for id in $RUN_IDS; do
+                echo "-> Đang gửi lệnh hủy cho run ID: $id"
+                gh run cancel $id || echo "Lỗi khi hủy run ID $id (có thể nó đã kết thúc)."
+              done
+              echo "✅ Đã gửi lệnh hủy."
+            fi
             
-            echo "🔄 Hoàn tất chu kỳ, chuẩn bị cho vòng lặp tiếp theo..."
+            echo "🔄 Chuẩn bị cho vòng lặp tiếp theo..."
           done
