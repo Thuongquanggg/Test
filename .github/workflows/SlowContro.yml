@@ -1,5 +1,5 @@
 # ✅ File: .github/workflows/SlowContro.yml
-# WORKFLOW ĐIỀU KHIỂN VÒNG LẶP (ĐÃ SỬA LỖI)
+# WORKFLOW ĐIỀU KHIỂN VÒNG LẶP (ĐÃ CẬP NHẬT ĐỂ NHẬN SỐ LẦN CHẠY)
 
 name: 🔄 Điều Khiển Vòng Lặp Slow
 
@@ -14,6 +14,11 @@ on:
         description: 'Số phút chờ trước khi khởi động lại'
         required: true
         default: '6'
+      # THAY ĐỔI 1: Thêm input mới
+      child_runs:
+        description: 'Số action con (Slow.yml) được khởi chạy trong mỗi chu kỳ'
+        required: true
+        default: '5'
 
 jobs:
   loop_controller:
@@ -31,32 +36,37 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_URL: ${{ github.event.inputs.target_url }}
-          # THAY ĐỔI 1: Chỉ truyền số phút vào, không tính toán ở đây
           WAIT_MINUTES: ${{ github.event.inputs.wait_minutes }}
+          # THAY ĐỔI 2: Truyền input mới vào env
+          CHILD_RUNS: ${{ github.event.inputs.child_runs }}
         run: |
-          set -e # Dừng script nếu có lỗi
+          set -e
           
-          # THAY ĐỔI 2: Thực hiện phép tính nhân bên trong script shell
           WAIT_SECONDS=$(($WAIT_MINUTES * 60))
 
           echo "Bắt đầu vòng lặp điều khiển..."
           echo "URL mục tiêu: $TARGET_URL"
+          echo "Số lần chạy con mỗi vòng: $CHILD_RUNS"
           echo "Thời gian chờ mỗi vòng: $WAIT_MINUTES phút ($WAIT_SECONDS giây)"
 
           while true; do
             echo "-----------------------------------------------------"
-            echo "🚀 Bắt đầu khởi chạy 5 actions 'Kiểm Tra Web Slow'..."
+            # THAY ĐỔI 3: Sử dụng biến CHILD_RUNS
+            echo "🚀 Bắt đầu khởi chạy $CHILD_RUNS actions 'Kiểm Tra Web Slow'..."
             
-            for i in $(seq 1 5); do
+            # Chạy N workflow con
+            for i in $(seq 1 $CHILD_RUNS); do
               gh workflow run Slow.yml --ref ${{ github.ref }} -f target_url="$TARGET_URL"
               echo "-> Đã kích hoạt lần chạy thứ $i"
             done
 
             sleep 15 
             
-            echo "🔍 Lấy ID của 5 lần chạy vừa được kích hoạt..."
-            RUN_IDS=$(gh run list --workflow=Slow.yml --json databaseId,status,createdAt --limit 10 \
-              --jq '[.[] | select(.status=="queued" or .status=="in_progress")] | sort_by(.createdAt) | reverse | .[0:5] | .[].databaseId' | tr '\n' ' ')
+            echo "🔍 Lấy ID của $CHILD_RUNS lần chạy vừa được kích hoạt..."
+            # Lấy ID của N lần chạy mới nhất
+            # THAY ĐỔI 4: Sử dụng biến CHILD_RUNS trong lệnh `gh` và `jq`
+            RUN_IDS=$(gh run list --workflow=Slow.yml --json databaseId,status,createdAt --limit $(($CHILD_RUNS * 2)) \
+              --jq --argjson num_runs "$CHILD_RUNS" '[.[] | select(.status=="queued" or .status=="in_progress")] | sort_by(.createdAt) | reverse | .[0:$num_runs] | .[].databaseId' | tr '\n' ' ')
 
             if [ -z "$RUN_IDS" ]; then
                 echo "⚠️ Không tìm thấy ID của các lần chạy mới. Có thể API bị chậm. Sẽ thử lại ở vòng lặp sau."
@@ -64,12 +74,11 @@ jobs:
                 echo "✅ Đã lấy được các ID: $RUN_IDS"
             fi
 
-            # THAY ĐỔI 3: Sử dụng biến đã được tính toán
             echo "⏳ Chờ $WAIT_SECONDS giây ($WAIT_MINUTES phút)..."
             sleep $WAIT_SECONDS
 
             if [ -n "$RUN_IDS" ]; then
-              echo "🛑 Ngừng 5 actions cũ..."
+              echo "🛑 Ngừng $CHILD_RUNS actions cũ..."
               for id in $RUN_IDS; do
                 echo "-> Đang gửi lệnh hủy cho run ID: $id"
                 gh run cancel $id || echo "Lỗi khi hủy run ID $id (có thể nó đã kết thúc)."
