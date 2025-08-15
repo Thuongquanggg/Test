@@ -1,7 +1,7 @@
 # ✅ File: .github/workflows/SlowContro.yml
-# WORKFLOW ĐIỀU KHIỂN (PHIÊN BẢN TỐI ƯU HÓA LOGIC)
+# WORKFLOW ĐIỀU KHIỂN (PHIÊN BẢN CUỐI CÙNG - CHỐNG LỖI RACE CONDITION)
 
-name: 🔄 Điều Khiển Vòng Lặp Slow (Tối ưu)
+name: 🔄 Điều Khiển Vòng Lặp Slow (Bản Ổn Định)
 
 on:
   workflow_dispatch:
@@ -47,41 +47,51 @@ jobs:
           echo "Số lần chạy con mỗi vòng: $CHILD_RUNS"
           echo "Thời gian chờ mỗi vòng: $WAIT_MINUTES phút ($WAIT_SECONDS giây)"
 
-          # THAY ĐỔI LOGIC 1: Khởi tạo biến để lưu ID bên ngoài vòng lặp
           RUN_IDS_TO_CANCEL=""
 
           while true; do
             echo "-----------------------------------------------------"
             
-            # THAY ĐỔI LOGIC 2: Dừng các action từ vòng lặp TRƯỚC (nếu có)
+            # Dừng các action từ vòng lặp TRƯỚC (nếu có)
             if [ -n "$RUN_IDS_TO_CANCEL" ]; then
               echo "🛑 Bắt đầu dừng $CHILD_RUNS actions từ vòng lặp trước..."
               for id in $RUN_IDS_TO_CANCEL; do
                 echo "-> Đang gửi lệnh hủy cho run ID: $id"
-                gh run cancel $id || echo "Lỗi khi hủy run ID $id (có thể nó đã kết thúc)."
+                gh run cancel $id || echo "Lỗi khi hủy run ID $id (có thể nó đã kết thúc hoặc không tồn tại)."
               done
               echo "✅ Đã gửi lệnh hủy cho các action cũ."
             else
               echo "ℹ️ Vòng lặp đầu tiên, không có action cũ để dừng."
             fi
 
-            # Bây giờ mới bắt đầu chạy các action MỚI
-            echo "🚀 Bắt đầu khởi chạy $CHILD_RUNS actions mới..."
-            for i in $(seq 1 $CHILD_RUNS); do
-              gh workflow run Slow.yml --ref ${{ github.ref }} -f target_url="$TARGET_URL"
-              echo "-> Đã kích hoạt lần chạy thứ $i"
-            done
-
-            # Chờ một chút để API ổn định
-            sleep 15 
+            # THAY ĐỔI QUAN TRỌNG: Lấy ID trực tiếp thay vì dùng `gh run list`
+            echo "🚀 Bắt đầu khởi chạy $CHILD_RUNS actions mới và lấy ID trực tiếp..."
             
-            # THAY ĐỔI LOGIC 3: Lấy ID của các action MỚI và lưu lại để DỪNG Ở VÒNG LẶP SAU
-            echo "🔍 Lấy ID của $CHILD_RUNS lần chạy mới để chuẩn bị cho vòng lặp sau..."
-            RUN_IDS_TO_CANCEL=$(gh run list --workflow=Slow.yml --json databaseId,status,createdAt --limit $(($CHILD_RUNS * 2)) \
-              --jq --argjson num_runs "$CHILD_RUNS" '[.[] | select(.status=="queued" or .status=="in_progress")] | sort_by(.createdAt) | reverse | .[0:$num_runs] | .[].databaseId' | tr '\n' ' ')
-
+            # Chuẩn bị một biến để lưu các ID mới
+            NEW_RUN_IDS=""
+            
+            for i in $(seq 1 $CHILD_RUNS); do
+              # Chạy workflow và chụp lại output (là URL của run)
+              RUN_URL=$(gh workflow run Slow.yml --ref ${{ github.ref }} -f target_url="$TARGET_URL")
+              
+              # Trích xuất ID từ URL (lấy phần cuối cùng sau dấu /)
+              RUN_ID=$(echo "$RUN_URL" | awk -F'/' '{print $NF}')
+              
+              # Kiểm tra xem có lấy được ID hợp lệ không
+              if [[ "$RUN_ID" =~ ^[0-9]+$ ]]; then
+                echo "-> Đã kích hoạt lần chạy $i với ID: $RUN_ID"
+                # Thêm ID vào danh sách
+                NEW_RUN_IDS="$NEW_RUN_IDS $RUN_ID"
+              else
+                echo "⚠️ Lỗi: Không thể lấy được Run ID cho lần chạy thứ $i. Output: $RUN_URL"
+              fi
+            done
+            
+            # Gán danh sách ID mới vào biến sẽ được dùng để hủy ở vòng lặp sau
+            RUN_IDS_TO_CANCEL=$(echo "$NEW_RUN_IDS" | xargs) # xargs để xóa khoảng trắng thừa
+            
             if [ -z "$RUN_IDS_TO_CANCEL" ]; then
-                echo "⚠️ Không tìm thấy ID của các lần chạy mới. Sẽ thử lại ở vòng lặp sau."
+                echo "‼️ Lỗi nghiêm trọng: Không thể kích hoạt và lấy ID của bất kỳ action con nào. Sẽ thử lại sau $WAIT_MINUTES phút."
             else
                 echo "✅ Đã lấy được các ID để hủy ở vòng lặp sau: $RUN_IDS_TO_CANCEL"
             fi
