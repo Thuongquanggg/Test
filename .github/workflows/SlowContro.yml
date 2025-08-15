@@ -1,7 +1,7 @@
 # ✅ File: .github/workflows/SlowContro.yml
-# WORKFLOW ĐIỀU KHIỂN (KẾT HỢP LOGIC CŨ VÀ VÒNG LẶP CHỜ)
+# WORKFLOW ĐIỀU KHIỂN (PHIÊN BẢN CUỐI CÙNG - DÙNG ID SỐ)
 
-name: 🔄 Điều Khiển Vòng Lặp Slow (Bản Hoàn Thiện)
+name: 🔄 Điều Khiển Vòng Lặp Slow (Bản ID Số)
 
 on:
   workflow_dispatch:
@@ -47,36 +47,45 @@ jobs:
           echo "Số lần chạy con mỗi vòng: $CHILD_RUNS"
           echo "Thời gian chờ mỗi vòng: $WAIT_MINUTES phút ($WAIT_SECONDS giây)"
 
+          # BƯỚC 1: LẤY ID DẠNG SỐ CỦA WORKFLOW CON
+          echo "Đang lấy ID của workflow 'Slow.yml'..."
+          WORKFLOW_ID=$(gh workflow view Slow.yml --json id --jq .id)
+          if ! [[ "$WORKFLOW_ID" =~ ^[0-9]+$ ]]; then
+            echo "‼️ Lỗi nghiêm trọng: Không thể tìm thấy ID của workflow 'Slow.yml'. Vui lòng kiểm tra lại tên file."
+            exit 1
+          fi
+          echo "✅ Đã lấy được ID của workflow 'Slow.yml': $WORKFLOW_ID"
+
           while true; do
             echo "-----------------------------------------------------"
-            echo "🚀 Bắt đầu khởi chạy $CHILD_RUNS actions 'Kiểm Tra Web Slow'..."
+            echo "🚀 Bắt đầu khởi chạy $CHILD_RUNS actions..."
             
+            # Chúng ta dùng ID số để kích hoạt, đáng tin cậy hơn
             for i in $(seq 1 $CHILD_RUNS); do
-              gh workflow run Slow.yml --ref ${{ github.ref }} -f target_url="$TARGET_URL"
+              gh workflow run $WORKFLOW_ID --ref ${{ github.ref }} -f target_url="$TARGET_URL"
               echo "-> Đã gửi yêu cầu kích hoạt lần chạy thứ $i"
             done
 
-            # THAY ĐỔI LỚN: DÙNG VÒNG LẶP "HỎI VÀ CHỜ" ĐỂ LẤY ID
             echo "🔍 Lấy ID của các lần chạy mới (thử tối đa 5 lần)..."
             RUN_IDS=""
             for attempt in $(seq 1 5); do
-              echo "Versuch $attempt..." # "Lần thử $attempt..."
-              # Chờ một chút trước khi hỏi API
+              echo "Lần thử $attempt..."
               sleep 10
               
-              RUN_IDS=$(gh run list --workflow=Slow.yml --json databaseId,status,createdAt --limit $(($CHILD_RUNS + 5)) \
+              # BƯỚC 2: DÙNG ID SỐ ĐỂ LIST RUNS
+              RUN_IDS=$(gh run list --workflow=$WORKFLOW_ID --json databaseId,status,createdAt --limit $(($CHILD_RUNS + 5)) \
                 --jq --argjson num_runs "$CHILD_RUNS" '[.[] | select(.status=="queued" or .status=="in_progress")] | sort_by(.createdAt) | reverse | .[0:$num_runs] | .[].databaseId' | tr '\n' ' ')
 
               if [ -n "$RUN_IDS" ]; then
                 echo "✅ Lấy ID thành công ở lần thử thứ $attempt."
-                break # Thoát khỏi vòng lặp khi đã có ID
+                break
               else
                 echo "⚠️ Không tìm thấy ID, đang thử lại sau 10 giây..."
               fi
             done
             
             if [ -z "$RUN_IDS" ]; then
-                echo "‼️ Lỗi nghiêm trọng: Sau 5 lần thử vẫn không lấy được ID. Sẽ bỏ qua chu kỳ này."
+                echo "‼️ Lỗi: Sau 5 lần thử vẫn không lấy được ID. Sẽ bỏ qua chu kỳ này."
             else
                 echo "✅ Đã lấy được danh sách ID để hủy: $RUN_IDS"
             fi
