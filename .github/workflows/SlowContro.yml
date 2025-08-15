@@ -1,7 +1,7 @@
 # ✅ File: .github/workflows/SlowContro.yml
-# WORKFLOW ĐIỀU KHIỂN VÒNG LẶP (ĐÃ CẬP NHẬT ĐỂ NHẬN SỐ LẦN CHẠY)
+# WORKFLOW ĐIỀU KHIỂN (PHIÊN BẢN TỐI ƯU HÓA LOGIC)
 
-name: 🔄 Điều Khiển Vòng Lặp Slow
+name: 🔄 Điều Khiển Vòng Lặp Slow (Tối ưu)
 
 on:
   workflow_dispatch:
@@ -14,7 +14,6 @@ on:
         description: 'Số phút chờ trước khi khởi động lại'
         required: true
         default: '6'
-      # THAY ĐỔI 1: Thêm input mới
       child_runs:
         description: 'Số action con (Slow.yml) được khởi chạy trong mỗi chu kỳ'
         required: true
@@ -37,7 +36,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_URL: ${{ github.event.inputs.target_url }}
           WAIT_MINUTES: ${{ github.event.inputs.wait_minutes }}
-          # THAY ĐỔI 2: Truyền input mới vào env
           CHILD_RUNS: ${{ github.event.inputs.child_runs }}
         run: |
           set -e
@@ -49,42 +47,48 @@ jobs:
           echo "Số lần chạy con mỗi vòng: $CHILD_RUNS"
           echo "Thời gian chờ mỗi vòng: $WAIT_MINUTES phút ($WAIT_SECONDS giây)"
 
+          # THAY ĐỔI LOGIC 1: Khởi tạo biến để lưu ID bên ngoài vòng lặp
+          RUN_IDS_TO_CANCEL=""
+
           while true; do
             echo "-----------------------------------------------------"
-            # THAY ĐỔI 3: Sử dụng biến CHILD_RUNS
-            echo "🚀 Bắt đầu khởi chạy $CHILD_RUNS actions 'Kiểm Tra Web Slow'..."
             
-            # Chạy N workflow con
+            # THAY ĐỔI LOGIC 2: Dừng các action từ vòng lặp TRƯỚC (nếu có)
+            if [ -n "$RUN_IDS_TO_CANCEL" ]; then
+              echo "🛑 Bắt đầu dừng $CHILD_RUNS actions từ vòng lặp trước..."
+              for id in $RUN_IDS_TO_CANCEL; do
+                echo "-> Đang gửi lệnh hủy cho run ID: $id"
+                gh run cancel $id || echo "Lỗi khi hủy run ID $id (có thể nó đã kết thúc)."
+              done
+              echo "✅ Đã gửi lệnh hủy cho các action cũ."
+            else
+              echo "ℹ️ Vòng lặp đầu tiên, không có action cũ để dừng."
+            fi
+
+            # Bây giờ mới bắt đầu chạy các action MỚI
+            echo "🚀 Bắt đầu khởi chạy $CHILD_RUNS actions mới..."
             for i in $(seq 1 $CHILD_RUNS); do
               gh workflow run Slow.yml --ref ${{ github.ref }} -f target_url="$TARGET_URL"
               echo "-> Đã kích hoạt lần chạy thứ $i"
             done
 
+            # Chờ một chút để API ổn định
             sleep 15 
             
-            echo "🔍 Lấy ID của $CHILD_RUNS lần chạy vừa được kích hoạt..."
-            # Lấy ID của N lần chạy mới nhất
-            # THAY ĐỔI 4: Sử dụng biến CHILD_RUNS trong lệnh `gh` và `jq`
-            RUN_IDS=$(gh run list --workflow=Slow.yml --json databaseId,status,createdAt --limit $(($CHILD_RUNS * 2)) \
+            # THAY ĐỔI LOGIC 3: Lấy ID của các action MỚI và lưu lại để DỪNG Ở VÒNG LẶP SAU
+            echo "🔍 Lấy ID của $CHILD_RUNS lần chạy mới để chuẩn bị cho vòng lặp sau..."
+            RUN_IDS_TO_CANCEL=$(gh run list --workflow=Slow.yml --json databaseId,status,createdAt --limit $(($CHILD_RUNS * 2)) \
               --jq --argjson num_runs "$CHILD_RUNS" '[.[] | select(.status=="queued" or .status=="in_progress")] | sort_by(.createdAt) | reverse | .[0:$num_runs] | .[].databaseId' | tr '\n' ' ')
 
-            if [ -z "$RUN_IDS" ]; then
-                echo "⚠️ Không tìm thấy ID của các lần chạy mới. Có thể API bị chậm. Sẽ thử lại ở vòng lặp sau."
+            if [ -z "$RUN_IDS_TO_CANCEL" ]; then
+                echo "⚠️ Không tìm thấy ID của các lần chạy mới. Sẽ thử lại ở vòng lặp sau."
             else
-                echo "✅ Đã lấy được các ID: $RUN_IDS"
+                echo "✅ Đã lấy được các ID để hủy ở vòng lặp sau: $RUN_IDS_TO_CANCEL"
             fi
 
+            # Chờ đợi để các action mới chạy
             echo "⏳ Chờ $WAIT_SECONDS giây ($WAIT_MINUTES phút)..."
             sleep $WAIT_SECONDS
-
-            if [ -n "$RUN_IDS" ]; then
-              echo "🛑 Ngừng $CHILD_RUNS actions cũ..."
-              for id in $RUN_IDS; do
-                echo "-> Đang gửi lệnh hủy cho run ID: $id"
-                gh run cancel $id || echo "Lỗi khi hủy run ID $id (có thể nó đã kết thúc)."
-              done
-              echo "✅ Đã gửi lệnh hủy."
-            fi
             
-            echo "🔄 Chuẩn bị cho vòng lặp tiếp theo..."
+            echo "🔄 Hoàn tất chu kỳ, chuẩn bị cho vòng lặp tiếp theo..."
           done
