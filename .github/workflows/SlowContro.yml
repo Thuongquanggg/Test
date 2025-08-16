@@ -4,7 +4,7 @@
 
 name: 🔄 Điều Khiển Vòng Lặp Slow
 
-# THAY ĐỔI 1: Thêm concurrency để đảm bảo chỉ có 1 controller chạy tại một thời điểm
+# Thêm concurrency để đảm bảo chỉ có 1 controller chạy tại một thời điểm
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: true
@@ -20,7 +20,7 @@ on:
         description: 'Số phút chờ trước khi khởi động lại'
         required: true
         default: '6'
-      # THAY ĐỔI 2: Thêm input mới cho số lượng worker
+      # Thêm input mới cho số lượng worker
       child_runs:
         description: 'Số lần chạy con (worker) được khởi chạy mỗi vòng lặp'
         required: true
@@ -45,7 +45,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_URL: ${{ github.event.inputs.target_url }}
           WAIT_MINUTES: ${{ github.event.inputs.wait_minutes }}
-          # THAY ĐỔI 3: Truyền input mới vào môi trường của script
           CHILD_RUNS: ${{ github.event.inputs.child_runs }}
         run: |
           set -e # Dừng script nếu có lỗi
@@ -59,7 +58,6 @@ jobs:
 
           while true; do
             echo "-----------------------------------------------------"
-            # THAY ĐỔI 4: Sử dụng biến CHILD_RUNS để điều khiển vòng lặp
             echo "🚀 Bắt đầu khởi chạy $CHILD_RUNS actions 'Kiểm Tra Web Slow'..."
 
             for i in $(seq 1 $CHILD_RUNS); do
@@ -69,7 +67,6 @@ jobs:
 
             sleep 15
 
-            # THAY ĐỔI 5: Sử dụng biến CHILD_RUNS để lấy đúng số lượng ID
             echo "🔍 Lấy ID của $CHILD_RUNS lần chạy vừa được kích hoạt..."
             RUN_IDS=$(gh run list --workflow=Slow.yml --json databaseId,status,createdAt --limit $(($CHILD_RUNS + 5)) \
               --jq "[.[] | select(.status==\"queued\" or .status==\"in_progress\")] | sort_by(.createdAt) | reverse | .[0:$CHILD_RUNS] | .[].databaseId" | tr '\n' ' ')
@@ -92,9 +89,10 @@ jobs:
               echo "✅ Đã gửi lệnh hủy."
             fi
 
-            # =================== PHẦN ĐƯỢC THÊM VÀO ===================
-            echo "🧹 Dọn dẹp các runs đã hoàn thành hoặc đã hủy..."
-            DELETABLE_RUN_IDS=$(gh run list --workflow=Slow.yml --limit 100 --json databaseId,status \
+            # =================== PHẦN DỌN DẸP ===================
+            echo "🧹 Dọn dẹp tất cả các runs đã dừng trong repository..."
+            # Lệnh này quét tất cả các workflow. Run nào chưa kịp cập nhật trạng thái sẽ được dọn dẹp ở vòng lặp sau.
+            DELETABLE_RUN_IDS=$(gh run list --limit 100 --json databaseId,status \
               --jq '[.[] | select(.status=="completed" or .status=="cancelled" or .status=="failure")] | .[].databaseId' | tr '\n' ' ')
 
             if [ -n "$DELETABLE_RUN_IDS" ]; then
