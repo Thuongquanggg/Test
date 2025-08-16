@@ -10,15 +10,15 @@ concurrency:
 on:
   workflow_dispatch:
     inputs:
-      # THAY ĐỔI 1: Chấp nhận 2 URL đầu vào
       target_url_1:
-        description: 'URL mục tiêu thứ nhất (cho các lần chạy lẻ: 1, 3, 5,...)'
+        description: 'URL mục tiêu chính (bắt buộc)'
         required: true
         default: 'https://certapple.com'
+      # THAY ĐỔI 1: URL 2 là tùy chọn
       target_url_2:
-        description: 'URL mục tiêu thứ hai (cho các lần chạy chẵn: 2, 4, 6,...)'
-        required: true
-        default: 'https://signiosapp.com'
+        description: 'URL mục tiêu thứ hai (tùy chọn, bỏ trống để chỉ dùng URL 1)'
+        required: false
+        default: ''
       wait_minutes:
         description: 'Số phút chờ trước khi khởi động lại'
         required: true
@@ -43,7 +43,6 @@ jobs:
       - name: Bắt đầu vòng lặp
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # THAY ĐỔI 2: Truyền cả 2 URL vào môi trường script
           TARGET_URL_1: ${{ github.event.inputs.target_url_1 }}
           TARGET_URL_2: ${{ github.event.inputs.target_url_2 }}
           WAIT_MINUTES: ${{ github.event.inputs.wait_minutes }}
@@ -54,21 +53,26 @@ jobs:
           WAIT_SECONDS=$(($WAIT_MINUTES * 60))
 
           echo "Bắt đầu vòng lặp điều khiển..."
-          echo "URL 1 (lẻ): $TARGET_URL_1"
-          echo "URL 2 (chẵn): $TARGET_URL_2"
+          echo "URL 1 (chính): $TARGET_URL_1"
+          if [ -n "$TARGET_URL_2" ]; then
+            echo "URL 2 (phụ): $TARGET_URL_2"
+          else
+            echo "URL 2 không được cung cấp. Tất cả runs sẽ dùng URL 1."
+          fi
           echo "Số worker mỗi vòng: $CHILD_RUNS"
           echo "Thời gian chờ mỗi vòng: $WAIT_MINUTES phút ($WAIT_SECONDS giây)"
 
           while true; do
             echo "-----------------------------------------------------"
-            echo "🚀 Bắt đầu khởi chạy $CHILD_RUNS actions 'Kiểm Tra Web Slow' xen kẽ..."
+            echo "🚀 Bắt đầu khởi chạy $CHILD_RUNS actions 'Kiểm Tra Web Slow'..."
 
-            # THAY ĐỔI 3: Logic lặp xen kẽ URL
+            # THAY ĐỔI 2: Logic lặp linh hoạt
             for i in $(seq 1 $CHILD_RUNS); do
-              # Sử dụng toán tử modulo để quyết định URL
-              if (( i % 2 != 0 )); then
-                CURRENT_URL="$TARGET_URL_1"
-              else
+              # Mặc định dùng URL 1
+              CURRENT_URL="$TARGET_URL_1"
+              
+              # Nếu URL 2 tồn tại VÀ đây là lần chạy chẵn, thì mới dùng URL 2
+              if [ -n "$TARGET_URL_2" ] && (( i % 2 == 0 )); then
                 CURRENT_URL="$TARGET_URL_2"
               fi
               
