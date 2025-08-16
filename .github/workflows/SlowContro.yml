@@ -1,5 +1,6 @@
+
 # ✅ File: .github/workflows/SlowContro.yml
-# WORKFLOW ĐIỀU KHIỂN VÒNG LẶP (CÓ THỂ TÙY CHỈNH SỐ LƯỢNG)
+# WORKFLOW ĐIỀU KHIỂN VÒNG LẶP (CÓ THỂ TÙY CHỈNH SỐ LƯỢỢNG)
 
 name: 🔄 Điều Khiển Vòng Lặp Slow
 
@@ -90,6 +91,23 @@ jobs:
               done
               echo "✅ Đã gửi lệnh hủy."
             fi
+
+            # =================== PHẦN ĐƯỢC THÊM VÀO ===================
+            echo "🧹 Dọn dẹp các runs đã hoàn thành hoặc đã hủy..."
+            DELETABLE_RUN_IDS=$(gh run list --workflow=Slow.yml --limit 100 --json databaseId,status \
+              --jq '[.[] | select(.status=="completed" or .status=="cancelled" or .status=="failure")] | .[].databaseId' | tr '\n' ' ')
+
+            if [ -n "$DELETABLE_RUN_IDS" ]; then
+              echo "🔎 Tìm thấy các runs có thể xóa: $DELETABLE_RUN_IDS"
+              for id in $DELETABLE_RUN_IDS; do
+                echo "-> Đang xóa run ID: $id"
+                gh run delete $id --yes || echo "Lỗi khi xóa run ID $id."
+              done
+              echo "✅ Đã dọn dẹp xong."
+            else
+              echo "👍 Không có run nào cần dọn dẹp."
+            fi
+            # ==========================================================
 
             echo "🔄 Chuẩn bị cho vòng lặp tiếp theo..."
           done
