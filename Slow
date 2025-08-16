@@ -34,7 +34,7 @@ const res = http.get(PROXY_FILE_URL, { timeout: '30s' });
 if (res.status === 200 && res.body) {
 const allNewProxies = res.body.trim().split('\n').filter(p => p.trim() !== '');
 if (allNewProxies.length > 0) {
-const newProxies = allNewProxies.slice(0, 500);
+const newProxies = allNewProxies.slice(0, 200);
 console.log(`Lấy thành công ${newProxies.length} proxy.`);
 return newProxies;
 } else {
