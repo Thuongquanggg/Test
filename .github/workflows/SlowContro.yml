@@ -91,7 +91,6 @@ jobs:
 
             # =================== PHẦN DỌN DẸP ===================
             echo "🧹 Dọn dẹp tất cả các runs đã dừng trong repository..."
-            # Lệnh này quét tất cả các workflow. Run nào chưa kịp cập nhật trạng thái sẽ được dọn dẹp ở vòng lặp sau.
             DELETABLE_RUN_IDS=$(gh run list --limit 100 --json databaseId,status \
               --jq '[.[] | select(.status=="completed" or .status=="cancelled" or .status=="failure")] | .[].databaseId' | tr '\n' ' ')
 
@@ -99,7 +98,8 @@ jobs:
               echo "🔎 Tìm thấy các runs có thể xóa: $DELETABLE_RUN_IDS"
               for id in $DELETABLE_RUN_IDS; do
                 echo "-> Đang xóa run ID: $id"
-                gh run delete $id --yes || echo "Lỗi khi xóa run ID $id."
+                # SỬA LỖI Ở ĐÂY: Dùng `yes |` thay vì `--yes`
+                yes | gh run delete $id || echo "Lỗi khi xóa run ID $id."
               done
               echo "✅ Đã dọn dẹp xong."
             else
