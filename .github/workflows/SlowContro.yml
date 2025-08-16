@@ -4,7 +4,6 @@
 
 name: 🔄 Điều Khiển Vòng Lặp Slow
 
-# Thêm concurrency để đảm bảo chỉ có 1 controller chạy tại một thời điểm
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: true
@@ -20,7 +19,6 @@ on:
         description: 'Số phút chờ trước khi khởi động lại'
         required: true
         default: '6'
-      # Thêm input mới cho số lượng worker
       child_runs:
         description: 'Số lần chạy con (worker) được khởi chạy mỗi vòng lặp'
         required: true
@@ -30,9 +28,7 @@ jobs:
   loop_controller:
     name: 🔄 Vòng Lặp Điều Khiển
     runs-on: ubuntu-latest
-    # Thêm timeout để tránh chạy vô hạn ngoài ý muốn (tối đa 6 giờ)
     timeout-minutes: 350
-
     permissions:
       actions: write
 
@@ -98,8 +94,8 @@ jobs:
               echo "🔎 Tìm thấy các runs có thể xóa: $DELETABLE_RUN_IDS"
               for id in $DELETABLE_RUN_IDS; do
                 echo "-> Đang xóa run ID: $id"
-                # SỬA LỖI Ở ĐÂY: Dùng `yes |` thay vì `--yes`
-                yes | gh run delete $id || echo "Lỗi khi xóa run ID $id."
+                # Tinh chỉnh để ẩn lỗi "Broken pipe" (vô hại)
+                (yes 2>/dev/null) | gh run delete $id || echo "Lỗi khi xóa run ID $id."
               done
               echo "✅ Đã dọn dẹp xong."
             else
