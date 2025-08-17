@@ -1,0 +1,22 @@
+name: V4
+
+on:
+  workflow_dispatch: # Cho phép chạy thủ công
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run k6 test
+        uses: grafana/k6-action@v0.2.0
+        with:
+          # Đảm bảo tên file này khớp với file script k6 của bạn
+          filename: v4.js
+        env:
+          # Truyền các secret đã tạo vào kịch bản k6
+          K6_GIST_ID: ${{ secrets.K6_GIST_ID }}
+          K6_GIST_PAT: ${{ secrets.K6_GIST_PAT }}
+          TARGET_URL: "https://certapple.com"
