@@ -1,5 +1,5 @@
-// File: v4.js
-// Phiên bản đơn giản hóa, đóng gói logic Gist để dễ quản lý.
+// File: v4.1.js
+// Phiên bản sửa lỗi "API Stampede" bằng cách phân chia vai trò đọc Gist.
 import http from 'k6/http';
 import { group, sleep } from 'k6';
 
@@ -7,7 +7,8 @@ import { group, sleep } from 'k6';
 const BASE_URL = __ENV.TARGET_URL || 'https://certapple.com';
 const PROXY_FILE_URL = 'https://raw.githubusercontent.com/Thuongquanggg/Proxy/main/proxies.txt';
 const PROXY_REFRESH_INTERVAL_MS = 3 * 60 * 1000;
-const GIST_CHECK_INTERVAL_MS = 30 * 1000;
+// Tăng thời gian kiểm tra Gist lên một chút để giảm tần suất
+const GIST_CHECK_INTERVAL_MS = 60 * 1000; // 1 phút
 const GIST_ID = __ENV.K6_GIST_ID;
 const GIST_PAT = __ENV.K6_GIST_PAT;
 const GIST_FILENAME = 'proxies.json';
@@ -29,7 +30,7 @@ export const options = {
             stages: [
                 { duration: '2m', target: 500 },
                 { duration: '5m', target: 1000 },
-                { duration: '5m', target: 1700 },
+                { duration: '5m', target: 1500 },
                 { duration: '600m', target: 2000 },
             ],
             gracefulStop: '2m',
@@ -46,9 +47,9 @@ const GistHelper = {
     }),
     read: function() {
         const res = http.get(this._getApiUrl(), { headers: this._getHeaders() });
-        if (res.status !== 200) { console.error(`GistHelper: Lỗi đọc Gist. Status: ${res.status}`); return null; }
+        if (res.status !== 200) { console.error(`[VU=${__VU}] GistHelper: Lỗi đọc Gist. Status: ${res.status}`); return null; }
         try { return JSON.parse(res.json().files[GIST_FILENAME].content); }
-        catch (e) { console.error(`GistHelper: Lỗi parse JSON từ Gist. Lỗi: ${e}`); return null; }
+        catch (e) { console.error(`[VU=${__VU}] GistHelper: Lỗi parse JSON. Lỗi: ${e}`); return null; }
     },
     update: function(proxies) {
         const payload = JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify({ last_updated: Date.now(), proxies: proxies }) } } });
@@ -67,13 +68,13 @@ export function setup() {
     console.log(`Lấy được ${initialProxies.length} proxy ban đầu.`);
     if (!GistHelper.update(initialProxies)) throw new Error('Cập nhật Gist ban đầu thất bại.');
     console.log('--- SETUP hoàn tất, Gist đã được khởi tạo ---');
-    return { initialProxies: initialProxies };
+    return { initialProxies: initialProxies, setupTime: Date.now() };
 }
 
 export function runTest(data) {
     if (vuProxies.length === 0) {
         vuProxies = data.initialProxies;
-        vuLastUpdated = Date.now();
+        vuLastUpdated = data.setupTime;
     }
     synchronizeProxies();
     if (!vuProxies || vuProxies.length === 0) {
@@ -85,25 +86,58 @@ export function runTest(data) {
     if (random < 0.5) firstTimeVisitor(); else returningVisitor();
 }
 
+// <<< THAY ĐỔI LỚN BẮT ĐẦU TỪ ĐÂY >>>
+/**
+ * Đồng bộ proxy một cách thông minh để tránh "API Stampede".
+ * - VU 1 (leader): Chịu trách nhiệm làm mới proxy từ nguồn và ghi lên Gist.
+ * - Các VU khác (followers): Chỉ một nhóm nhỏ được phép đọc Gist để giảm tải.
+ */
 function synchronizeProxies() {
     const now = Date.now();
-    if (now - lastGistCheckTime < GIST_CHECK_INTERVAL_MS) return;
+    // Mỗi VU vẫn có đồng hồ riêng để không kiểm tra trong mỗi vòng lặp
+    if (now - lastGistCheckTime < GIST_CHECK_INTERVAL_MS) {
+        return;
+    }
     lastGistCheckTime = now;
-    if (__VU === 1 && now - vuLastUpdated > PROXY_REFRESH_INTERVAL_MS) {
-        console.log(`[VU lãnh đạo] Làm mới proxy trên Gist.`);
-        const res = http.get(PROXY_FILE_URL);
-        if (res.status === 200 && res.body) {
-            const newProxies = res.body.trim().split('\n').filter(p => p.trim() !== '');
-            if (newProxies.length > 0) GistHelper.update(newProxies.slice(0, 200));
+
+    let shouldReadGist = false;
+
+    // Logic cho VU lãnh đạo
+    if (__VU === 1) {
+        console.log('[VU Leader] Đang kiểm tra để làm mới Gist...');
+        // Kiểm tra xem có cần làm mới proxy từ nguồn không
+        if (now - vuLastUpdated > PROXY_REFRESH_INTERVAL_MS) {
+            console.log(`[VU Leader] Đã đến lúc làm mới proxy từ nguồn.`);
+            const res = http.get(PROXY_FILE_URL);
+            if (res.status === 200 && res.body) {
+                const newProxies = res.body.trim().split('\n').filter(p => p.trim() !== '');
+                if (newProxies.length > 0) {
+                    GistHelper.update(newProxies.slice(0, 200));
+                }
+            }
+        }
+        // VU lãnh đạo luôn được phép đọc Gist để cập nhật
+        shouldReadGist = true;
+    } 
+    // Logic cho các VU "trinh sát" (followers được chọn)
+    // Chỉ các VU có ID là 11, 21, 31, 41... mới được phép đọc Gist
+    else if ((__VU % 10) === 1) {
+        shouldReadGist = true;
+        console.log(`[VU Trinh sát ${__VU}] Đang kiểm tra Gist...`);
+    }
+
+    // Chỉ những VU được phép mới thực hiện đọc
+    if (shouldReadGist) {
+        const gistData = GistHelper.read();
+        if (gistData && gistData.last_updated > vuLastUpdated) {
+            console.log(`[VU=${__VU}] Phát hiện proxy mới trên Gist. Đang cập nhật...`);
+            vuProxies = gistData.proxies;
+            vuLastUpdated = gistData.last_updated;
+            console.log(`[VU=${__VU}] Cập nhật thành công ${vuProxies.length} proxy.`);
         }
     }
-    const gistData = GistHelper.read();
-    if (gistData && gistData.last_updated > vuLastUpdated) {
-        console.log(`[VU=${__VU}] Cập nhật proxy từ Gist.`);
-        vuProxies = gistData.proxies;
-        vuLastUpdated = gistData.last_updated;
-    }
 }
+// <<< THAY ĐỔI LỚN KẾT THÚC TẠI ĐÂY >>>
 
 function firstTimeVisitor() {
     group('Hành vi: Khách lần đầu', () => { http.get(BASE_URL, getBaseParams()); });
