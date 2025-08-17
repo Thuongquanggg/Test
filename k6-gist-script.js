@@ -36,7 +36,10 @@ export const options = {
             stages: [
                 { duration: '2m', target: 100 }, // Giảm target để test trên GitHub Actions Free Tier
                 { duration: '5m', target: 200 },
-                { duration: '2m', target: 0 },
+
+              { duration: '5m', target: 1000 },
+
+                { duration: '600m', target: 2000 },
             ],
             gracefulStop: '2m',
             exec: 'runTest',
