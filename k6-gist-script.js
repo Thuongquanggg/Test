@@ -27,7 +27,7 @@ const USER_AGENTS = [
 let vuLocalProxies = [];
 let vuLocalLastUpdated = 0;
 
-// --- CẤU HÌNH KỊCH BẢN TEST (Giữ nguyên) ---
+// --- CẤU HÌNH KỊCH BẢN TEST ---
 export const options = {
     insecureSkipTLSVerify: true,
     scenarios: {
@@ -184,7 +184,7 @@ function leaderProxyRefresh() {
 function firstTimeVisitor(proxies) {
     const params = getBaseParams(proxies);
     group('Hành vi: Khách lần đầu', function () {
-        http.get(BASE_URL, { ...params, tags: { type: 'html' } });
+        http.get(BASE_URL, Object.assign({}, params, { tags: { type: 'html' } }));
     });
     sleep(Math.random() * 4 + 3);
 }
@@ -192,7 +192,7 @@ function firstTimeVisitor(proxies) {
 function returningVisitor(proxies) {
     const params = getBaseParams(proxies);
     group('Hành vi: Khách quay lại', function () {
-        http.get(BASE_URL, { ...params, tags: { type: 'html' } });
+        http.get(BASE_URL, Object.assign({}, params, { tags: { type: 'html' } }));
     });
     sleep(Math.random() * 4 + 3);
 }
