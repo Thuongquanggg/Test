@@ -1,4 +1,4 @@
-# ✅✅✅✅✅ controller.yml
+# ✅✅✅✅✅ controller.yml (Đã sửa lỗi)
 # Workflow này đóng vai trò "điều khiển", chạy v4.yml trong một vòng lặp vô hạn.
 name: Controller - Run v4 in Loop
 on:
@@ -33,10 +33,17 @@ jobs:
   loop-controller:
     runs-on: ubuntu-latest
     steps:
+      # === FIX: THÊM BƯỚC CHECKOUT ===
+      # Bước này rất quan trọng. Nó tải mã nguồn của repository vào máy chạy,
+      # bao gồm cả thư mục .git. Lệnh `gh` cần điều này để xác định repo
+      # và nhánh (--ref) một cách chính xác.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Vòng lặp vô hạn để kích hoạt v4.yml
         env:
           # Cần GITHUB_TOKEN để có quyền gọi workflow khác
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Lấy các giá trị input để dễ sử dụng trong script
           TARGET_URL_1: ${{ github.event.inputs.target_url_1 }}
           TARGET_URL_2: ${{ github.event.inputs.target_url_2 }}
@@ -60,17 +67,15 @@ jobs:
                 -f target_url_2="$TARGET_URL_2" \
                 -f k6_max_vus="$MAX_VUS" \
                 -f k6_duration="$CHILD_DURATION"
-              
+
               # Chờ một chút giữa các lần kích hoạt để tránh spam API của GitHub
               echo ">> Đã kích hoạt. Chờ 5 giây trước khi tiếp tục..."
-              sleep 5 
+              sleep 5
             done
 
             echo "--- KẾT THÚC CÁC LẦN KÍCH HOẠT ---"
             echo "Đang chờ ${WAIT_MINUTES} phút trước khi bắt đầu vòng lặp tiếp theo..."
-            
+
             # Chuyển phút sang giây để lệnh sleep hoạt động
             sleep $((WAIT_MINUTES * 60))
           done
-
-
