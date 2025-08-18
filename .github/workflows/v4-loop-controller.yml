@@ -1,5 +1,5 @@
-# ✅✅✅✅✅ controller.yml (Đã sửa lỗi quyền)
-name: Controller - Run v4 in Loop
+# ✅✅✅✅✅ controller.yml (Xóa không chờ)
+name: Controller - Run v4 in Loop (with Instant Cleanup)
 on:
   workflow_dispatch:
     inputs:
@@ -31,20 +31,15 @@ on:
 jobs:
   loop-controller:
     runs-on: ubuntu-latest
-    
-    # === FIX: THÊM KHỐI PERMISSIONS ===
-    # Cấp quyền cho GITHUB_TOKEN để có thể kích hoạt workflow khác.
     permissions:
-      actions: write   # Bắt buộc để chạy `gh workflow run`
-      contents: read   # Tốt nhất nên có để `actions/checkout` hoạt động ổn định
-
+      actions: write
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Vòng lặp vô hạn để kích hoạt v4.yml
+      - name: Run Control Loop
         env:
-          # GITHUB_TOKEN sẽ tự động nhận quyền từ khối permissions ở trên
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_URL_1: ${{ github.event.inputs.target_url_1 }}
           TARGET_URL_2: ${{ github.event.inputs.target_url_2 }}
@@ -53,30 +48,65 @@ jobs:
           CHILD_DURATION: ${{ github.event.inputs.child_run_duration }}
           WAIT_MINUTES: ${{ github.event.inputs.loop_wait_minutes }}
         run: |
-          # Vòng lặp này sẽ chạy mãi mãi cho đến khi bạn hủy thủ công
+          LOOP_COUNT=0
+
           while true; do
-            echo "--- BẮT ĐẦU VÒNG LẶP MỚI ---"
+            if [ $LOOP_COUNT -gt 0 ]; then
+              echo "--- BẮT ĐẦU GIAI ĐOẠN DỌN DẸP ---"
+
+              # 1. Dừng tất cả các runs đang chạy hoặc đang chờ
+              echo ">> Bước 1/2: Tìm và dừng các runs đang hoạt động..."
+              RUNNING_IDS=$(gh run list --status "in_progress,queued" --limit 100 --json databaseId --jq '.[].databaseId')
+              
+              if [ -n "$RUNNING_IDS" ]; then
+                echo "$RUNNING_IDS" | while read -r id; do
+                  echo "   - Gửi yêu cầu dừng cho run ID: $id"
+                  gh run cancel "$id" || echo "   - Không thể dừng run $id, tiếp tục..."
+                done
+                echo ">> Đã gửi tất cả yêu cầu dừng."
+              else
+                echo ">> Không tìm thấy run nào đang hoạt động để dừng."
+              fi
+
+              # === THAY ĐỔI: ĐÃ XÓA BƯỚC CHỜ ===
+
+              # 2. Xóa tất cả các runs đã hoàn thành (bao gồm cả những run vừa bị hủy NẾU KỊP CẬP NHẬT)
+              echo ">> Bước 2/2: Tìm và xóa các runs đã hoàn thành/bị hủy..."
+              COMPLETED_IDS=$(gh run list --status "completed,cancelled,failure,skipped" --limit 100 --json databaseId --jq '.[].databaseId')
+
+              if [ -n "$COMPLETED_IDS" ]; then
+                echo "$COMPLETED_IDS" | while read -r id; do
+                  echo "   - Gửi yêu cầu xóa cho run ID: $id"
+                  gh run delete "$id" || echo "   - Không thể xóa run $id, tiếp tục..."
+                done
+                echo ">> Đã gửi tất cả yêu cầu xóa."
+              else
+                echo ">> Không tìm thấy run nào đã hoàn thành để xóa."
+              fi
+
+              echo "--- KẾT THÚC GIAI ĐOẠN DỌN DẸP ---"
+            fi
+
+            echo "--- BẮT ĐẦU GIAI ĐOẠN KÍCH HOẠT (Vòng lặp số $LOOP_COUNT) ---"
             echo "Sẽ kích hoạt v4.yml ${RUNS_PER_LOOP} lần."
 
-            # Vòng lặp for để chạy v4.yml theo số lần đã định
             for i in $(seq 1 $RUNS_PER_LOOP)
             do
-              echo ">> Bắt đầu lần chạy con thứ $i/${RUNS_PER_LOOP}..."
+              echo ">> Kích hoạt lần chạy con thứ $i/${RUNS_PER_LOOP}..."
               gh workflow run v4.yml \
                 --ref ${{ github.ref_name }} \
                 -f target_url_1="$TARGET_URL_1" \
                 -f target_url_2="$TARGET_URL_2" \
                 -f k6_max_vus="$MAX_VUS" \
                 -f k6_duration="$CHILD_DURATION"
-
-              # Chờ một chút giữa các lần kích hoạt để tránh spam API của GitHub
-              echo ">> Đã kích hoạt. Chờ 5 giây trước khi tiếp tục..."
-              sleep 5
+              
+              echo ">> Đã kích hoạt. Chờ 2 giây trước khi tiếp tục..."
+              sleep 2
             done
 
-            echo "--- KẾT THÚC CÁC LẦN KÍCH HOẠT ---"
-            echo "Đang chờ ${WAIT_MINUTES} phút trước khi bắt đầu vòng lặp tiếp theo..."
-
-            # Chuyển phút sang giây để lệnh sleep hoạt động
+            LOOP_COUNT=$((LOOP_COUNT + 1))
+            
+            echo "--- KẾT THÚC GIAI ĐOẠN KÍCH HOẠT ---"
+            echo "Đang chờ ${WAIT_MINUTES} phút trước khi bắt đầu vòng lặp tiếp theo (Vòng lặp số $LOOP_COUNT)..."
             sleep $((WAIT_MINUTES * 60))
           done
