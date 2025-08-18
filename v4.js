@@ -75,7 +75,7 @@ if (res.status === 200 && res.body) {
 const newProxies = res.body.trim().split('\n').filter(p => p.trim() !== '');
 if (newProxies.length > 0) GistHelper.update(newProxies.slice(0, 200)); } }
 shouldReadGist = true; }
-else if ((__VU % 10) === 1) {
+else if ((__VU % 200) === 1) {
 shouldReadGist = true;
 console.log(`[VU Trinh sát ${__VU}] Đang kiểm tra Gist...`); }
 if (shouldReadGist) {
