@@ -1,5 +1,4 @@
-# ✅✅✅✅✅ controller.yml (Đã sửa lỗi)
-# Workflow này đóng vai trò "điều khiển", chạy v4.yml trong một vòng lặp vô hạn.
+# ✅✅✅✅✅ controller.yml (Đã sửa lỗi quyền)
 name: Controller - Run v4 in Loop
 on:
   workflow_dispatch:
@@ -32,19 +31,21 @@ on:
 jobs:
   loop-controller:
     runs-on: ubuntu-latest
+    
+    # === FIX: THÊM KHỐI PERMISSIONS ===
+    # Cấp quyền cho GITHUB_TOKEN để có thể kích hoạt workflow khác.
+    permissions:
+      actions: write   # Bắt buộc để chạy `gh workflow run`
+      contents: read   # Tốt nhất nên có để `actions/checkout` hoạt động ổn định
+
     steps:
-      # === FIX: THÊM BƯỚC CHECKOUT ===
-      # Bước này rất quan trọng. Nó tải mã nguồn của repository vào máy chạy,
-      # bao gồm cả thư mục .git. Lệnh `gh` cần điều này để xác định repo
-      # và nhánh (--ref) một cách chính xác.
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Vòng lặp vô hạn để kích hoạt v4.yml
         env:
-          # Cần GITHUB_TOKEN để có quyền gọi workflow khác
+          # GITHUB_TOKEN sẽ tự động nhận quyền từ khối permissions ở trên
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Lấy các giá trị input để dễ sử dụng trong script
           TARGET_URL_1: ${{ github.event.inputs.target_url_1 }}
           TARGET_URL_2: ${{ github.event.inputs.target_url_2 }}
           RUNS_PER_LOOP: ${{ github.event.inputs.runs_per_loop }}
