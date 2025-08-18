@@ -1,106 +1,76 @@
-# ✅✅✅✅✅ v4-loop-controller.yml
-
-name: v4-loop-controller
+# ✅✅✅✅✅ controller.yml
+# Workflow này đóng vai trò "điều khiển", chạy v4.yml trong một vòng lặp vô hạn.
+name: Controller - Run v4 in Loop
 on:
   workflow_dispatch:
     inputs:
       target_url_1:
         description: 'URL Mục Tiêu 1 (bắt buộc)'
         required: true
+        default: 'https://certapple.com'
       target_url_2:
         description: 'URL Mục Tiêu 2 (tùy chọn)'
         required: false
-        default: ''
-      loop_delay_minutes:
-        description: 'Số phút chờ giữa các vòng lặp'
+        default: 'https://signiosapp.com'
+      loop_wait_minutes:
+        description: 'Số Phút Chờ Mỗi Vòng Lặp'
         required: true
         default: '15'
-      num_jobs:
-        description: 'Số lượng job k6 cần chạy trong mỗi vòng lặp'
+      runs_per_loop:
+        description: 'Số Lần Chạy Con (v4.yml) Mỗi Vòng Lặp'
         required: true
-        default: '5'
-      k6_duration:
-        description: 'Thời gian chạy của mỗi job k6 (phút)'
-        required: true
-        default: '10'
-      k6_max_vus:
-        description: 'Số VUs tối đa cho mỗi job k6'
+        default: '2'
+      max_vus_per_job:
+        description: 'Số Người Dùng Ảo Tối Đa (VUs) Mỗi Job'
         required: true
         default: '500'
+      child_run_duration:
+        description: 'Thời gian chạy của mỗi job con (phút)'
+        required: true
+        default: '10'
 
 jobs:
-  manage-loop:
+  loop-controller:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Dọn dẹp các lần chạy cũ (trừ chính nó)
+      - name: Vòng lặp vô hạn để kích hoạt v4.yml
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT_FOR_ACTIONS }} # Sử dụng PAT đặc biệt
-          REPO: ${{ github.repository }}
-          CURRENT_RUN_ID: ${{ github.run_id }}
+          # Cần GITHUB_TOKEN để có quyền gọi workflow khác
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          # Lấy các giá trị input để dễ sử dụng trong script
+          TARGET_URL_1: ${{ github.event.inputs.target_url_1 }}
+          TARGET_URL_2: ${{ github.event.inputs.target_url_2 }}
+          RUNS_PER_LOOP: ${{ github.event.inputs.runs_per_loop }}
+          MAX_VUS: ${{ github.event.inputs.max_vus_per_job }}
+          CHILD_DURATION: ${{ github.event.inputs.child_run_duration }}
+          WAIT_MINUTES: ${{ github.event.inputs.loop_wait_minutes }}
         run: |
-          echo "Bắt đầu dọn dẹp cho repo: $REPO"
-          
-          # Dừng tất cả các runs đang chạy (queued hoặc in_progress), trừ chính workflow này
-          echo "Đang dừng các runs đang hoạt động..."
-          gh run list --repo $REPO --status "in_progress,queued" --json databaseId,workflowName | \
-          jq -c '.[] | select(.databaseId != env.CURRENT_RUN_ID)' | \
-          while read -r run; do
-            run_id=$(echo "$run" | jq -r '.databaseId')
-            workflow_name=$(echo "$run" | jq -r '.workflowName')
-            echo "Đang dừng run ID: $run_id (Workflow: $workflow_name)"
-            gh run cancel "$run_id" --repo $REPO || echo "Không thể dừng run $run_id, có thể đã hoàn thành."
+          # Vòng lặp này sẽ chạy mãi mãi cho đến khi bạn hủy thủ công
+          while true; do
+            echo "--- BẮT ĐẦU VÒNG LẶP MỚI ---"
+            echo "Sẽ kích hoạt v4.yml ${RUNS_PER_LOOP} lần."
+
+            # Vòng lặp for để chạy v4.yml theo số lần đã định
+            for i in $(seq 1 $RUNS_PER_LOOP)
+            do
+              echo ">> Bắt đầu lần chạy con thứ $i/${RUNS_PER_LOOP}..."
+              gh workflow run v4.yml \
+                --ref ${{ github.ref_name }} \
+                -f target_url_1="$TARGET_URL_1" \
+                -f target_url_2="$TARGET_URL_2" \
+                -f k6_max_vus="$MAX_VUS" \
+                -f k6_duration="$CHILD_DURATION"
+              
+              # Chờ một chút giữa các lần kích hoạt để tránh spam API của GitHub
+              echo ">> Đã kích hoạt. Chờ 5 giây trước khi tiếp tục..."
+              sleep 5 
+            done
+
+            echo "--- KẾT THÚC CÁC LẦN KÍCH HOẠT ---"
+            echo "Đang chờ ${WAIT_MINUTES} phút trước khi bắt đầu vòng lặp tiếp theo..."
+            
+            # Chuyển phút sang giây để lệnh sleep hoạt động
+            sleep $((WAIT_MINUTES * 60))
           done
 
-          # Chờ một chút để các runs chuyển sang trạng thái 'cancelled'
-          sleep 10
-          
-          # Xóa tất cả các runs đã hoàn thành (completed, cancelled, failure, etc.)
-          echo "Đang xóa các runs đã hoàn thành..."
-          gh run list --repo $REPO --status "completed,cancelled,failure,skipped,success" -L 200 --json databaseId | \
-          jq -r '.[].databaseId' | \
-          while read -r run_id; do
-            echo "Đang xóa run ID: $run_id"
-            gh run delete "$run_id" --repo $REPO -y || echo "Không thể xóa run $run_id."
-          done
-          echo "Dọn dẹp hoàn tất."
 
-      - name: 2. Kích hoạt các Worker Jobs (v4.yml)
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT_FOR_ACTIONS }} # Sử dụng PAT đặc biệt
-          REPO: ${{ github.repository }}
-          REF: ${{ github.ref }}
-        run: |
-          echo "Bắt đầu kích hoạt ${{ github.event.inputs.num_jobs }} worker jobs..."
-          for i in $(seq 1 ${{ github.event.inputs.num_jobs }})
-          do
-            echo "Kích hoạt worker job $i/${{ github.event.inputs.num_jobs }}..."
-            gh workflow run v4.yml --repo $REPO --ref $REF \
-              -f target_url_1='${{ github.event.inputs.target_url_1 }}' \
-              -f target_url_2='${{ github.event.inputs.target_url_2 }}' \
-              -f k6_duration='${{ github.event.inputs.k6_duration }}' \
-              -f k6_max_vus='${{ github.event.inputs.k6_max_vus }}'
-            sleep 2 # Thêm độ trễ nhỏ để tránh rate limit
-          done
-          echo "Kích hoạt worker jobs hoàn tất."
-
-      - name: 3. Chờ cho đến vòng lặp tiếp theo
-        run: |
-          delay_minutes=${{ github.event.inputs.loop_delay_minutes }}
-          delay_seconds=$((delay_minutes * 60))
-          echo "Sẽ chờ trong $delay_minutes phút ($delay_seconds giây) trước khi bắt đầu vòng lặp tiếp theo..."
-          sleep $delay_seconds
-
-      - name: 4. Tự kích hoạt lại để tạo vòng lặp
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT_FOR_ACTIONS }} # Sử dụng PAT đặc biệt
-          REPO: ${{ github.repository }}
-          REF: ${{ github.ref }}
-        run: |
-          echo "Đã đến lúc khởi động lại vòng lặp. Kích hoạt lại v4-loop-controller.yml..."
-          gh workflow run v4-loop-controller.yml --repo $REPO --ref $REF \
-            -f target_url_1='${{ github.event.inputs.target_url_1 }}' \
-            -f target_url_2='${{ github.event.inputs.target_url_2 }}' \
-            -f loop_delay_minutes='${{ github.event.inputs.loop_delay_minutes }}' \
-            -f num_jobs='${{ github.event.inputs.num_jobs }}' \
-            -f k6_duration='${{ github.event.inputs.k6_duration }}' \
-            -f k6_max_vus='${{ github.event.inputs.k6_max_vus }}'
