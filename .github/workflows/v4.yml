@@ -1,8 +1,26 @@
-name: V4
-
+# ✅✅✅✅✅ v4.yml
+name: v4
 on:
-  workflow_dispatch: # Cho phép chạy thủ công
-
+  workflow_dispatch:
+    # Thêm các input để nhận tất cả các tham số từ giao diện web
+    inputs:
+      target_url_1:
+        description: 'URL Mục Tiêu 1 (bắt buộc)'
+        required: true
+      target_url_2:
+        description: 'URL Mục Tiêu 2 (tùy chọn)'
+        required: false
+        default: ''
+      # === START: INPUTS MỚI CHO K6 ===
+      k6_duration:
+        description: 'Tổng thời gian chạy của bài test k6 (phút)'
+        required: true
+        default: '10'
+      k6_max_vus:
+        description: 'Số người dùng ảo tối đa mà k6 sẽ tạo ra'
+        required: true
+        default: '500'
+      # === END: INPUTS MỚI CHO K6 ===
 jobs:
   load-test:
     runs-on: ubuntu-latest
@@ -13,10 +31,14 @@ jobs:
       - name: Run k6 test
         uses: grafana/k6-action@v0.2.0
         with:
-          # Đảm bảo tên file này khớp với file script k6 của bạn
           filename: v4.js
         env:
-          # Truyền các secret đã tạo vào kịch bản k6
+          # Truyền tất cả các input vào kịch bản k6 dưới dạng biến môi trường
+          K6_TARGET_URL_1: ${{ github.event.inputs.target_url_1 }}
+          K6_TARGET_URL_2: ${{ github.event.inputs.target_url_2 }}
+          # === START: BIẾN MÔI TRƯỜNG MỚI CHO K6 ===
+          K6_DURATION_MINUTES: ${{ github.event.inputs.k6_duration }}
+          K6_MAX_VUS: ${{ github.event.inputs.k6_max_vus }}
+          # === END: BIẾN MÔI TRƯỜNG MỚI CHO K6 ===
           K6_GIST_ID: ${{ secrets.K6_GIST_ID }}
           K6_GIST_PAT: ${{ secrets.K6_GIST_PAT }}
-          TARGET_URL: "https://certapple.com"
