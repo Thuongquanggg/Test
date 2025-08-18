@@ -1,5 +1,5 @@
 # ✅✅✅✅✅ controller.yml (Xóa không chờ)
-name: Controller - Run v4 in Loop (with Instant Cleanup)
+name: Controller - Run v4 in Loop
 on:
   workflow_dispatch:
     inputs:
