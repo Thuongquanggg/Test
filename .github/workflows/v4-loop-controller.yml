@@ -1,0 +1,106 @@
+# ✅✅✅✅✅ v4-loop-controller.yml
+
+name: v4-loop-controller
+on:
+  workflow_dispatch:
+    inputs:
+      target_url_1:
+        description: 'URL Mục Tiêu 1 (bắt buộc)'
+        required: true
+      target_url_2:
+        description: 'URL Mục Tiêu 2 (tùy chọn)'
+        required: false
+        default: ''
+      loop_delay_minutes:
+        description: 'Số phút chờ giữa các vòng lặp'
+        required: true
+        default: '15'
+      num_jobs:
+        description: 'Số lượng job k6 cần chạy trong mỗi vòng lặp'
+        required: true
+        default: '5'
+      k6_duration:
+        description: 'Thời gian chạy của mỗi job k6 (phút)'
+        required: true
+        default: '10'
+      k6_max_vus:
+        description: 'Số VUs tối đa cho mỗi job k6'
+        required: true
+        default: '500'
+
+jobs:
+  manage-loop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Dọn dẹp các lần chạy cũ (trừ chính nó)
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_FOR_ACTIONS }} # Sử dụng PAT đặc biệt
+          REPO: ${{ github.repository }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+        run: |
+          echo "Bắt đầu dọn dẹp cho repo: $REPO"
+          
+          # Dừng tất cả các runs đang chạy (queued hoặc in_progress), trừ chính workflow này
+          echo "Đang dừng các runs đang hoạt động..."
+          gh run list --repo $REPO --status "in_progress,queued" --json databaseId,workflowName | \
+          jq -c '.[] | select(.databaseId != env.CURRENT_RUN_ID)' | \
+          while read -r run; do
+            run_id=$(echo "$run" | jq -r '.databaseId')
+            workflow_name=$(echo "$run" | jq -r '.workflowName')
+            echo "Đang dừng run ID: $run_id (Workflow: $workflow_name)"
+            gh run cancel "$run_id" --repo $REPO || echo "Không thể dừng run $run_id, có thể đã hoàn thành."
+          done
+
+          # Chờ một chút để các runs chuyển sang trạng thái 'cancelled'
+          sleep 10
+          
+          # Xóa tất cả các runs đã hoàn thành (completed, cancelled, failure, etc.)
+          echo "Đang xóa các runs đã hoàn thành..."
+          gh run list --repo $REPO --status "completed,cancelled,failure,skipped,success" -L 200 --json databaseId | \
+          jq -r '.[].databaseId' | \
+          while read -r run_id; do
+            echo "Đang xóa run ID: $run_id"
+            gh run delete "$run_id" --repo $REPO -y || echo "Không thể xóa run $run_id."
+          done
+          echo "Dọn dẹp hoàn tất."
+
+      - name: 2. Kích hoạt các Worker Jobs (v4.yml)
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_FOR_ACTIONS }} # Sử dụng PAT đặc biệt
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref }}
+        run: |
+          echo "Bắt đầu kích hoạt ${{ github.event.inputs.num_jobs }} worker jobs..."
+          for i in $(seq 1 ${{ github.event.inputs.num_jobs }})
+          do
+            echo "Kích hoạt worker job $i/${{ github.event.inputs.num_jobs }}..."
+            gh workflow run v4.yml --repo $REPO --ref $REF \
+              -f target_url_1='${{ github.event.inputs.target_url_1 }}' \
+              -f target_url_2='${{ github.event.inputs.target_url_2 }}' \
+              -f k6_duration='${{ github.event.inputs.k6_duration }}' \
+              -f k6_max_vus='${{ github.event.inputs.k6_max_vus }}'
+            sleep 2 # Thêm độ trễ nhỏ để tránh rate limit
+          done
+          echo "Kích hoạt worker jobs hoàn tất."
+
+      - name: 3. Chờ cho đến vòng lặp tiếp theo
+        run: |
+          delay_minutes=${{ github.event.inputs.loop_delay_minutes }}
+          delay_seconds=$((delay_minutes * 60))
+          echo "Sẽ chờ trong $delay_minutes phút ($delay_seconds giây) trước khi bắt đầu vòng lặp tiếp theo..."
+          sleep $delay_seconds
+
+      - name: 4. Tự kích hoạt lại để tạo vòng lặp
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_FOR_ACTIONS }} # Sử dụng PAT đặc biệt
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref }}
+        run: |
+          echo "Đã đến lúc khởi động lại vòng lặp. Kích hoạt lại v4-loop-controller.yml..."
+          gh workflow run v4-loop-controller.yml --repo $REPO --ref $REF \
+            -f target_url_1='${{ github.event.inputs.target_url_1 }}' \
+            -f target_url_2='${{ github.event.inputs.target_url_2 }}' \
+            -f loop_delay_minutes='${{ github.event.inputs.loop_delay_minutes }}' \
+            -f num_jobs='${{ github.event.inputs.num_jobs }}' \
+            -f k6_duration='${{ github.event.inputs.k6_duration }}' \
+            -f k6_max_vus='${{ github.event.inputs.k6_max_vus }}'
