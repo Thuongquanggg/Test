@@ -1,6 +1,5 @@
-
 # ✅ File: .github/workflows/SlowContro2.yml
-# WORKFLOW ĐIỀU KHIỂN VÒNG LẶP CUỐN CHIẾU (ROLLING UPDATE)
+# WORKFLOW ĐIỀU KHIỂN VÒNG LẶP CUỐN CHIẾU (ROLLING UPDATE) - ĐÃ SỬA LỖI
 
 name: '🔄 Điều Khiển Vòng Lặp Slow (Cuốn Chiếu)'
 
@@ -52,7 +51,6 @@ jobs:
 
           WAIT_SECONDS=$(($WAIT_MINUTES * 60))
           NUM_TO_RESTART=$(($CHILD_RUNS / 2))
-          # Xử lý trường hợp số lẻ, đảm bảo luôn có ít nhất 1 run được khởi động lại
           if [ $NUM_TO_RESTART -eq 0 ]; then
              NUM_TO_RESTART=1
           fi
@@ -69,7 +67,6 @@ jobs:
           echo "Thời gian chờ mỗi vòng: $WAIT_MINUTES phút ($WAIT_SECONDS giây)"
           echo "-----------------------------------------------------"
 
-          # THAY ĐỔI 1: KHỞI CHẠY 100% LẦN ĐẦU TIÊN (BÊN NGOÀI VÒNG LẶP)
           echo "🚀 Bắt đầu khởi chạy 100% ($CHILD_RUNS) runs ban đầu..."
           for i in $(seq 1 $CHILD_RUNS); do
             CURRENT_URL="$TARGET_URL_1"
@@ -83,8 +80,9 @@ jobs:
           sleep 20 # Chờ API của GitHub cập nhật
 
           echo "🔍 Lấy ID của các runs ban đầu và lưu lại..."
+          # SỬA LỖI 1: Đổi '...' thành "..." và escape các dấu " bên trong
           ACTIVE_RUN_IDS=$(gh run list --workflow=Slow.yml --json databaseId,status,createdAt --limit $(($CHILD_RUNS + 5)) \
-            --jq '[.[] | select(.status=="queued" or .status=="in_progress")] | sort_by(.createdAt) | reverse | .[0:$CHILD_RUNS] | .[].databaseId' | tr '\n' ' ')
+            --jq "[.[] | select(.status==\"queued\" or .status==\"in_progress\")] | sort_by(.createdAt) | reverse | .[0:$CHILD_RUNS] | .[].databaseId" | tr '\n' ' ')
           
           if [ -z "$ACTIVE_RUN_IDS" ]; then
               echo "❌ Không thể lấy ID các run ban đầu. Dừng workflow."
@@ -93,13 +91,11 @@ jobs:
           echo "✅ Các run đang hoạt động: $ACTIVE_RUN_IDS"
 
 
-          # THAY ĐỔI 2: VÒNG LẶP CUỐN CHIẾU (ROLLING UPDATE)
           while true; do
             echo "-----------------------------------------------------"
             echo "⏳ Vòng lặp chính bắt đầu. Chờ $WAIT_MINUTES phút..."
             sleep $WAIT_SECONDS
 
-            # 1. Dừng 50% runs cũ nhất
             echo "🛑 Chuẩn bị dừng $NUM_TO_RESTART runs cũ nhất..."
             IDS_TO_STOP=$(echo "$ACTIVE_RUN_IDS" | cut -d' ' -f1-$NUM_TO_RESTART)
             IDS_TO_KEEP=$(echo "$ACTIVE_RUN_IDS" | cut -d' ' -f$(($NUM_TO_RESTART + 1))-)
@@ -111,10 +107,10 @@ jobs:
             done
             echo "✅ Đã gửi lệnh hủy."
 
-            # 2. Dọn dẹp tất cả các runs đã dừng (giữ nguyên logic cũ)
             echo "🧹 Dọn dẹp tất cả các runs đã dừng trong repository..."
+            # SỬA LỖI 2: Đổi '...' thành "..." và escape các dấu " bên trong
             DELETABLE_RUN_IDS=$(gh run list --limit 100 --json databaseId,status \
-              --jq '[.[] | select(.status=="completed" or .status=="cancelled" or .status=="failure")] | .[].databaseId' | tr '\n' ' ')
+              --jq "[.[] | select(.status==\"completed\" or .status==\"cancelled\" or .status==\"failure\")] | .[].databaseId" | tr '\n' ' ')
             if [ -n "$DELETABLE_RUN_IDS" ]; then
               for id in $DELETABLE_RUN_IDS; do
                 (yes 2>/dev/null) | gh run delete $id >/dev/null 2>&1 || echo "Lỗi khi xóa run ID $id."
@@ -124,11 +120,10 @@ jobs:
               echo "👍 Không có run nào cần dọn dẹp."
             fi
 
-            # 3. Khởi động 50% runs mới để thay thế
             echo "🚀 Khởi chạy $NUM_TO_RESTART runs mới để thay thế..."
             for i in $(seq 1 $NUM_TO_RESTART); do
               CURRENT_URL="$TARGET_URL_1"
-              if [ -n "$TARGET_URL_2" ] && (( i % 2 != 0 )); then # Đổi logic chẵn/lẻ để xen kẽ tốt hơn
+              if [ -n "$TARGET_URL_2" ] && (( i % 2 != 0 )); then
                 CURRENT_URL="$TARGET_URL_2"
               fi
               echo "-> Kích hoạt lần chạy mới $i với URL: $CURRENT_URL"
@@ -137,16 +132,15 @@ jobs:
 
             sleep 20 # Chờ API cập nhật
 
-            # 4. Lấy ID của các runs mới và cập nhật lại danh sách tổng
             echo "🔍 Lấy ID của $NUM_TO_RESTART runs mới..."
+            # SỬA LỖI 3: Đổi '...' thành "..." và escape các dấu " bên trong
             NEW_RUN_IDS=$(gh run list --workflow=Slow.yml --json databaseId,status,createdAt --limit $(($NUM_TO_RESTART + 5)) \
-              --jq '[.[] | select(.status=="queued" or .status=="in_progress")] | sort_by(.createdAt) | reverse | .[0:$NUM_TO_RESTART] | .[].databaseId' | tr '\n' ' ')
+              --jq "[.[] | select(.status==\"queued\" or .status==\"in_progress\")] | sort_by(.createdAt) | reverse | .[0:$NUM_TO_RESTART] | .[].databaseId" | tr '\n' ' ')
 
             if [ -z "$NEW_RUN_IDS" ]; then
                 echo "⚠️ Không tìm thấy ID của các lần chạy mới. Sẽ giữ nguyên danh sách cũ và thử lại ở vòng lặp sau."
                 ACTIVE_RUN_IDS="$IDS_TO_KEEP"
             else
-                # Nối danh sách cũ còn lại và danh sách mới. Các run mới nhất sẽ ở cuối.
                 ACTIVE_RUN_IDS=$(echo "$IDS_TO_KEEP $NEW_RUN_IDS" | xargs)
                 echo "✅ Đã lấy được các ID mới: $NEW_RUN_IDS"
             fi
